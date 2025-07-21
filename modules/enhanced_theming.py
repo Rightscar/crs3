@@ -464,7 +464,8 @@ class EnhancedTheming:
                 
                 if uploaded_config:
                     try:
-                        config = eval(uploaded_config.read().decode())
+                        import json
+                        config = json.loads(uploaded_config.read().decode())
                         if self.import_theme_config(config):
                             st.success("✅ Theme imported!")
                             st.rerun()

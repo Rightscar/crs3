@@ -23,10 +23,22 @@ class PerformanceOptimizer:
     """
     
     def __init__(self):
-        self.cache_dir = os.getenv('CACHE_DIR', '/tmp/text_dialogue_cache')
+        import tempfile
+        default_cache_dir = os.path.join(tempfile.gettempdir(), 'text_dialogue_cache')
+        self.cache_dir = os.getenv('CACHE_DIR', default_cache_dir)
         self.cache = dc.Cache(self.cache_dir)
-        self.cache_ttl = int(os.getenv('CACHE_TTL', '3600'))  # 1 hour default
-        self.max_memory_mb = int(os.getenv('MAX_MEMORY_MB', '512'))
+        # Safely convert environment variables with validation
+        try:
+            self.cache_ttl = int(os.getenv('CACHE_TTL', '3600'))
+        except ValueError:
+            logger.warning("Invalid CACHE_TTL value, using default 3600")
+            self.cache_ttl = 3600
+            
+        try:
+            self.max_memory_mb = int(os.getenv('MAX_MEMORY_MB', '512'))
+        except ValueError:
+            logger.warning("Invalid MAX_MEMORY_MB value, using default 512")
+            self.max_memory_mb = 512
         self.executor = ThreadPoolExecutor(max_workers=4)
         self._setup_logging()
         

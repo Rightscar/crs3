@@ -1,15 +1,18 @@
 [server]
-headless = true
 port = 8501
 address = "0.0.0.0"
+maxUploadSize = 50
+enableCORS = false
+enableXsrfProtection = true
 
 [browser]
 gatherUsageStats = false
 
 [theme]
-base = "dark"
 primaryColor = "#667eea"
 backgroundColor = "#0f0f23"
 secondaryBackgroundColor = "#1a1a2e"
 textColor = "#ffffff"
 
+[logger]
+level = "info"
