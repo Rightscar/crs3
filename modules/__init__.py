@@ -18,21 +18,22 @@ __version__ = "1.0.0"
 __author__ = "Universal AI Training Data Creator"
 
 # Import key classes for easy access
+__all__ = []
+
+# Try to import each module individually with graceful fallbacks
 try:
     from .enhanced_universal_extractor import EnhancedUniversalExtractor
-    from .dynamic_prompt_engine import DynamicPromptEngine
-    from .manual_review import ManualReviewInterface
-    from .smart_content_detector import SmartContentDetector
-    
-    __all__ = [
-        'EnhancedUniversalExtractor',
-        'DynamicPromptEngine',
-        'ManualReviewInterface',
-        'SmartContentDetector'
-    ]
-    
+    __all__.append('EnhancedUniversalExtractor')
 except ImportError as e:
-    # Graceful handling if some modules are missing
-    print(f"Warning: Some modules could not be imported: {e}")
-    __all__ = []
+    print(f"Warning: EnhancedUniversalExtractor could not be imported: {e}")
+
+try:
+    from .smart_content_detector import SmartContentDetector
+    __all__.append('SmartContentDetector')
+except ImportError as e:
+    print(f"Warning: SmartContentDetector could not be imported: {e}")
+
+# Remove references to non-existent modules
+# from .dynamic_prompt_engine import DynamicPromptEngine     # Module doesn't exist
+# from .manual_review import ManualReviewInterface           # Module doesn't exist
 

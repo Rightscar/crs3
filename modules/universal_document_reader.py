@@ -19,7 +19,6 @@ import io
 import logging
 from typing import Dict, List, Any, Optional, Tuple, Union
 from datetime import datetime
-import streamlit as st
 from pathlib import Path
 
 # Import handlers based on availability
@@ -405,12 +404,20 @@ class UniversalDocumentReader:
         
         # Add optional renderers based on availability
         if DOCX_AVAILABLE:
-            from .docx_renderer import DocxRenderer
-            self.renderers['docx'] = DocxRenderer()
+            try:
+                from .docx_renderer import DocxRenderer
+                self.renderers['docx'] = DocxRenderer()
+            except ImportError:
+                logger.warning("DocxRenderer module not found - DOCX support disabled")
+                DOCX_AVAILABLE = False
         
         if EPUB_AVAILABLE:
-            from .epub_renderer import EpubRenderer
-            self.renderers['epub'] = EpubRenderer()
+            try:
+                from .epub_renderer import EpubRenderer
+                self.renderers['epub'] = EpubRenderer()
+            except ImportError:
+                logger.warning("EpubRenderer module not found - EPUB support disabled")
+                EPUB_AVAILABLE = False
         
         self.current_renderer = None
         self.current_format = None
