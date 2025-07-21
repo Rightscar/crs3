@@ -39,6 +39,7 @@ try:
     from modules.gpt_dialogue_generator import GPTDialogueGenerator
     from modules.enhanced_universal_extractor import EnhancedUniversalExtractor
     from modules.multi_format_exporter import MultiFormatExporter
+    from modules.analytics_dashboard import AnalyticsDashboard
     MODULES_AVAILABLE = True
 except ImportError as e:
     st.error(f"❌ Module import error: {e}")
@@ -183,6 +184,7 @@ class UniversalDocumentReaderApp:
         self.nlp_processor = IntelligentProcessor()
         self.ai_generator = GPTDialogueGenerator()
         self.exporter = MultiFormatExporter()
+        self.analytics = AnalyticsDashboard()
         
         self._initialize_session_state()
         self._check_system_capabilities()
@@ -248,6 +250,42 @@ class UniversalDocumentReaderApp:
     def run(self):
         """Main application entry point"""
         try:
+            # Sidebar analytics dashboard
+            with st.sidebar:
+                st.markdown("## 📊 Analytics")
+                
+                # Quick metrics
+                if hasattr(st.session_state, 'analytics_data'):
+                    processing_events = st.session_state.analytics_data.get('processing_events', [])
+                    
+                    if processing_events:
+                        col1, col2 = st.columns(2)
+                        with col1:
+                            st.metric("Operations", len(processing_events))
+                        with col2:
+                            success_rate = sum(1 for e in processing_events if e['success']) / len(processing_events)
+                            st.metric("Success", f"{success_rate:.0%}")
+                        
+                        # Quick system status
+                        system_metrics = self.analytics.get_system_metrics()
+                        st.progress(system_metrics.get('cpu_percent', 0) / 100)
+                        st.caption(f"CPU: {system_metrics.get('cpu_percent', 0):.1f}% | Memory: {system_metrics.get('memory_percent', 0):.1f}%")
+                    
+                    # Link to full dashboard
+                    if st.button("📊 View Full Analytics"):
+                        st.session_state.show_analytics = True
+                
+                st.markdown("---")
+            
+            # Show analytics dashboard if requested
+            if st.session_state.get('show_analytics', False):
+                self.analytics.render_analytics_dashboard()
+                
+                if st.button("🔙 Back to Document Reader"):
+                    st.session_state.show_analytics = False
+                    st.rerun()
+                return
+            
             # Render header
             self._render_header()
             
@@ -440,23 +478,58 @@ class UniversalDocumentReaderApp:
                 st.session_state.new_bookmark_title = ""
                 st.rerun()
         
-        # Search
-        with st.expander("🔍 Search", expanded=False):
-            search_term = st.text_input("Search in document", key="doc_search")
-            if search_term and st.button("🔍 Search"):
-                self._search_document(search_term)
+            # Enhanced Search
+    with st.expander("🔍 Advanced Search", expanded=False):
+        # Search input
+        search_term = st.text_input("Search in document", key="doc_search")
+        
+        # Search options
+        col1, col2 = st.columns(2)
+        with col1:
+            case_sensitive = st.checkbox("Case sensitive", key="case_sensitive")
+            whole_words = st.checkbox("Whole words only", key="whole_words")
+        
+        with col2:
+            search_type = st.selectbox("Search type", ["Text", "Regex", "Semantic"], key="search_type")
+            max_results = st.slider("Max results", 5, 50, 20, key="max_results")
+        
+        if search_term and st.button("🔍 Search"):
+            self._advanced_search_document(search_term, search_type, case_sensitive, whole_words, max_results)
+        
+        # Search results with enhanced display
+        if st.session_state.search_results:
+            st.markdown(f"**Found {len(st.session_state.search_results)} results:**")
             
-            # Search results
-            if st.session_state.search_results:
-                st.markdown(f"**Found {len(st.session_state.search_results)} results:**")
-                for i, result in enumerate(st.session_state.search_results[:10]):
-                    if st.button(
-                        f"Page {result['page']}: {result.get('context', result['text'])[:50]}...", 
-                        key=f"search_result_{i}"
-                    ):
-                        st.session_state.current_page = result['page']
-                        st.session_state.highlight_areas = [result.get('bbox', [])]
-                        st.rerun()
+            # Group by page
+            results_by_page = {}
+            for result in st.session_state.search_results[:max_results]:
+                page = result['page']
+                if page not in results_by_page:
+                    results_by_page[page] = []
+                results_by_page[page].append(result)
+            
+            for page, page_results in sorted(results_by_page.items()):
+                with st.expander(f"📄 Page {page} ({len(page_results)} results)", expanded=False):
+                    for i, result in enumerate(page_results):
+                        col1, col2 = st.columns([4, 1])
+                        
+                        with col1:
+                            context = result.get('context', result['text'])
+                            highlighted_context = context.replace(
+                                search_term, 
+                                f"**{search_term}**" if not case_sensitive else search_term
+                            )
+                            st.markdown(f"*{highlighted_context[:100]}...*")
+                            
+                        with col2:
+                            if st.button("Go", key=f"search_go_{page}_{i}"):
+                                st.session_state.current_page = page
+                                st.session_state.highlight_areas = [result.get('bbox', [])]
+                                st.rerun()
+            
+            # Search statistics
+            pages_with_results = len(results_by_page)
+            st.caption(f"Results found across {pages_with_results} pages")
         
         # Processing History
         with st.expander("📊 Processing History", expanded=False):
@@ -598,12 +671,12 @@ class UniversalDocumentReaderApp:
         """Render right processor panel"""
         st.markdown("### 🧠 AI Processor")
         
-        # Processing mode selection
-        mode = st.selectbox(
-            "Processing Mode",
-            ["Keyword Analysis", "Context Extraction", "Q&A Generation", "Summary Creation", "Entity Extraction"],
-            key="processing_mode_select"
-        )
+            # Processing mode selection
+    mode = st.selectbox(
+        "Processing Mode",
+        ["Keyword Analysis", "Context Extraction", "Q&A Generation", "Summary Creation", "Entity Extraction", "Theme Analysis", "Structure Analysis", "Content Insights"],
+        key="processing_mode_select"
+    )
         st.session_state.current_processing_mode = mode
         
         # Mode-specific inputs
@@ -690,6 +763,11 @@ class UniversalDocumentReaderApp:
     
     def _process_current_page(self):
         """Process the current page"""
+        start_time = time.time()
+        success = False
+        result_count = 0
+        confidence_avg = 0
+        
         try:
             page_text = self.document_reader.extract_page_text(st.session_state.current_page)
             
@@ -705,6 +783,11 @@ class UniversalDocumentReaderApp:
                 )
                 
                 if results:
+                    # Calculate metrics
+                    result_count = len(results)
+                    confidence_avg = sum(r.confidence for r in results) / len(results)
+                    success = True
+                    
                     # Add to processing results
                     st.session_state.processing_results.extend(results)
                     
@@ -726,6 +809,19 @@ class UniversalDocumentReaderApp:
         except Exception as e:
             logger.error(f"Processing error: {e}")
             st.error(f"Processing failed: {str(e)}")
+        
+        finally:
+            # Record analytics
+            duration = time.time() - start_time
+            self.analytics.record_processing_event(
+                event_type="page_processing",
+                page_number=st.session_state.current_page,
+                processing_mode=st.session_state.current_processing_mode,
+                duration=duration,
+                success=success,
+                result_count=result_count,
+                confidence_avg=confidence_avg
+            )
     
     def _process_selected_text(self, selected_text: str):
         """Process selected text"""
@@ -780,10 +876,25 @@ class UniversalDocumentReaderApp:
                     text, "Brief", "Paragraph", page_number
                 )
             
-            elif mode == "Entity Extraction":
-                results = self.nlp_processor.extract_named_entities(
-                    text, page_number
-                )
+        elif mode == "Entity Extraction":
+            results = self.nlp_processor.extract_named_entities(
+                text, page_number
+            )
+        
+        elif mode == "Theme Analysis":
+            results = self.nlp_processor.extract_key_themes(
+                text, page_number
+            )
+        
+        elif mode == "Structure Analysis":
+            results = self.nlp_processor.analyze_document_structure(
+                text, page_number
+            )
+        
+        elif mode == "Content Insights":
+            results = self.nlp_processor.generate_content_insights(
+                text, page_number
+            )
             
             # Enhance with OpenAI if enabled
             if st.session_state.get('use_openai', False) and results:
@@ -947,12 +1058,12 @@ class UniversalDocumentReaderApp:
             st.info("Process some content first to enable export")
             return
         
-        # Export format
-        export_format = st.selectbox(
-            "Format",
-            ["JSON", "JSONL", "CSV", "Markdown", "HTML"],
-            key="export_format"
-        )
+            # Export format
+    export_format = st.selectbox(
+        "Format",
+        ["JSON", "JSONL", "CSV", "Markdown", "HTML", "Structured JSON", "Analysis Report", "Complete Package"],
+        key="export_format"
+    )
         
         # Export options
         include_metadata = st.checkbox("Include metadata", value=True, key="include_metadata")
@@ -982,44 +1093,72 @@ class UniversalDocumentReaderApp:
                 
                 export_data.append(item)
             
-            # Generate content based on format
-            if format_type == "JSON":
-                content = json.dumps(export_data, indent=2)
-                mime_type = "application/json"
-                file_ext = "json"
-                
-            elif format_type == "JSONL":
-                content = '\n'.join([json.dumps(item) for item in export_data])
-                mime_type = "application/json"
-                file_ext = "jsonl"
-                
-            elif format_type == "CSV":
-                import pandas as pd
-                df = pd.DataFrame(export_data)
-                content = df.to_csv(index=False)
-                mime_type = "text/csv"
-                file_ext = "csv"
-                
-            elif format_type == "Markdown":
-                content = "# Processing Results\n\n"
-                for item in export_data:
-                    content += f"## {item['type'].title()} - Page {item['source_page']}\n\n"
-                    content += f"{item['content']}\n\n"
-                    content += f"*Confidence: {item['confidence']:.1%} | {item['timestamp']}*\n\n"
-                    content += "---\n\n"
-                mime_type = "text/markdown"
-                file_ext = "md"
-                
-            else:  # HTML
-                content = "<html><head><title>Processing Results</title></head><body>"
-                content += "<h1>Processing Results</h1>"
-                for item in export_data:
-                    content += f"<h2>{item['type'].title()} - Page {item['source_page']}</h2>"
-                    content += f"<p>{item['content']}</p>"
-                    content += f"<small>Confidence: {item['confidence']:.1%} | {item['timestamp']}</small><hr>"
-                content += "</body></html>"
-                mime_type = "text/html"
-                file_ext = "html"
+                    # Generate content based on format
+        if format_type == "JSON":
+            content = json.dumps(export_data, indent=2)
+            mime_type = "application/json"
+            file_ext = "json"
+            
+        elif format_type == "JSONL":
+            content = '\n'.join([json.dumps(item) for item in export_data])
+            mime_type = "application/json"
+            file_ext = "jsonl"
+            
+        elif format_type == "CSV":
+            content = self.exporter.export_to_csv_analysis(export_data)
+            mime_type = "text/csv"
+            file_ext = "csv"
+            
+        elif format_type == "Structured JSON":
+            document_info = {
+                'title': st.session_state.current_document.get('metadata', {}).title if st.session_state.current_document else 'Document',
+                'format': st.session_state.current_document.get('format', 'unknown'),
+                'total_pages': st.session_state.total_pages
+            }
+            content = self.exporter.export_to_structured_json(export_data, document_info)
+            mime_type = "application/json"
+            file_ext = "json"
+            
+        elif format_type == "Analysis Report":
+            document_info = {
+                'title': st.session_state.current_document.get('metadata', {}).title if st.session_state.current_document else 'Document',
+                'format': st.session_state.current_document.get('format', 'unknown'),
+                'total_pages': st.session_state.total_pages
+            }
+            content = self.exporter.export_to_markdown_report(export_data, document_info)
+            mime_type = "text/markdown"
+            file_ext = "md"
+            
+        elif format_type == "Complete Package":
+            document_info = {
+                'title': st.session_state.current_document.get('metadata', {}).title if st.session_state.current_document else 'Document',
+                'format': st.session_state.current_document.get('format', 'unknown'),
+                'total_pages': st.session_state.total_pages
+            }
+            content = self.exporter.create_comprehensive_export_package(export_data, document_info)
+            mime_type = "application/zip"
+            file_ext = "zip"
+            
+        elif format_type == "Markdown":
+            content = "# Processing Results\n\n"
+            for item in export_data:
+                content += f"## {item['type'].title()} - Page {item['source_page']}\n\n"
+                content += f"{item['content']}\n\n"
+                content += f"*Confidence: {item['confidence']:.1%} | {item['timestamp']}*\n\n"
+                content += "---\n\n"
+            mime_type = "text/markdown"
+            file_ext = "md"
+            
+        else:  # HTML
+            content = "<html><head><title>Processing Results</title></head><body>"
+            content += "<h1>Processing Results</h1>"
+            for item in export_data:
+                content += f"<h2>{item['type'].title()} - Page {item['source_page']}</h2>"
+                content += f"<p>{item['content']}</p>"
+                content += f"<small>Confidence: {item['confidence']:.1%} | {item['timestamp']}</small><hr>"
+            content += "</body></html>"
+            mime_type = "text/html"
+            file_ext = "html"
             
             # Generate filename
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -1040,21 +1179,177 @@ class UniversalDocumentReaderApp:
             logger.error(f"Export error: {e}")
             st.error(f"Export failed: {str(e)}")
     
-    def _search_document(self, search_term: str):
-        """Search document for term"""
+    def _advanced_search_document(self, search_term: str, search_type: str, 
+                                case_sensitive: bool, whole_words: bool, max_results: int):
+        """Advanced search with multiple options"""
         try:
             with st.spinner(f"Searching for '{search_term}'..."):
-                results = self.document_reader.search_document(search_term)
+                results = []
+                
+                if search_type == "Semantic" and hasattr(self.nlp_processor, 'sentence_transformers_available'):
+                    # Semantic search using sentence transformers
+                    results = self._semantic_search(search_term, max_results)
+                
+                elif search_type == "Regex":
+                    # Regular expression search
+                    results = self._regex_search(search_term, case_sensitive, max_results)
+                
+                else:
+                    # Basic text search with options
+                    results = self._text_search(search_term, case_sensitive, whole_words, max_results)
+                
                 st.session_state.search_results = results
                 
                 if results:
-                    st.success(f"Found {len(results)} matches")
+                    st.success(f"Found {len(results)} matches using {search_type.lower()} search")
                 else:
-                    st.info("No matches found")
+                    st.info(f"No matches found for '{search_term}'")
                     
         except Exception as e:
-            logger.error(f"Search error: {e}")
+            logger.error(f"Advanced search error: {e}")
             st.error(f"Search failed: {str(e)}")
+    
+    def _text_search(self, search_term: str, case_sensitive: bool, whole_words: bool, max_results: int):
+        """Basic text search with options"""
+        results = []
+        
+        for page_num in range(1, st.session_state.total_pages + 1):
+            try:
+                page_text = self.document_reader.extract_page_text(page_num)
+                if not page_text:
+                    continue
+                
+                # Prepare search term and text
+                if not case_sensitive:
+                    search_text = page_text.lower()
+                    term = search_term.lower()
+                else:
+                    search_text = page_text
+                    term = search_term
+                
+                # Find matches
+                import re
+                if whole_words:
+                    pattern = r'\b' + re.escape(term) + r'\b'
+                    flags = 0 if case_sensitive else re.IGNORECASE
+                    matches = list(re.finditer(pattern, search_text, flags))
+                else:
+                    start = 0
+                    matches = []
+                    while True:
+                        pos = search_text.find(term, start)
+                        if pos == -1:
+                            break
+                        matches.append(type('Match', (), {'start': lambda: pos, 'end': lambda: pos + len(term)})())
+                        start = pos + 1
+                
+                # Extract context for each match
+                for match in matches:
+                    start_pos = max(0, match.start() - 50)
+                    end_pos = min(len(page_text), match.end() + 50)
+                    context = page_text[start_pos:end_pos]
+                    
+                    results.append({
+                        'page': page_num,
+                        'text': search_term,
+                        'context': context,
+                        'position': match.start(),
+                        'match_type': 'text'
+                    })
+                    
+                    if len(results) >= max_results:
+                        return results
+                        
+            except Exception as e:
+                logger.warning(f"Error searching page {page_num}: {e}")
+                continue
+        
+        return results
+    
+    def _regex_search(self, pattern: str, case_sensitive: bool, max_results: int):
+        """Regular expression search"""
+        results = []
+        
+        try:
+            import re
+            flags = 0 if case_sensitive else re.IGNORECASE
+            compiled_pattern = re.compile(pattern, flags)
+        except re.error as e:
+            st.error(f"Invalid regex pattern: {e}")
+            return []
+        
+        for page_num in range(1, st.session_state.total_pages + 1):
+            try:
+                page_text = self.document_reader.extract_page_text(page_num)
+                if not page_text:
+                    continue
+                
+                # Find regex matches
+                for match in compiled_pattern.finditer(page_text):
+                    start_pos = max(0, match.start() - 50)
+                    end_pos = min(len(page_text), match.end() + 50)
+                    context = page_text[start_pos:end_pos]
+                    
+                    results.append({
+                        'page': page_num,
+                        'text': match.group(),
+                        'context': context,
+                        'position': match.start(),
+                        'match_type': 'regex'
+                    })
+                    
+                    if len(results) >= max_results:
+                        return results
+                        
+            except Exception as e:
+                logger.warning(f"Error regex searching page {page_num}: {e}")
+                continue
+        
+        return results
+    
+    def _semantic_search(self, query: str, max_results: int):
+        """Semantic search using sentence similarity"""
+        results = []
+        
+        try:
+            # Use the NLP processor's semantic search if available
+            if hasattr(self.nlp_processor, 'sentence_transformers_available') and self.nlp_processor.sentence_transformers_available:
+                for page_num in range(1, st.session_state.total_pages + 1):
+                    page_text = self.document_reader.extract_page_text(page_num)
+                    if not page_text:
+                        continue
+                    
+                    # Extract context using the NLP processor
+                    context_results = self.nlp_processor.extract_context_based_content(
+                        page_text, query, 0.3, page_num
+                    )
+                    
+                    for result in context_results:
+                        if len(results) >= max_results:
+                            return results
+                            
+                        results.append({
+                            'page': page_num,
+                            'text': query,
+                            'context': result.content[:200] + "...",
+                            'confidence': result.confidence,
+                            'match_type': 'semantic'
+                        })
+            
+            else:
+                # Fallback to keyword-based search
+                st.warning("Semantic search not available, using keyword search instead")
+                return self._text_search(query, False, False, max_results)
+                
+        except Exception as e:
+            logger.error(f"Semantic search error: {e}")
+            return self._text_search(query, False, False, max_results)
+        
+        return results
+    
+    def _search_document(self, search_term: str):
+        """Legacy search method for compatibility"""
+        return self._text_search(search_term, False, False, 20)
 
 def main():
     """Main application entry point"""

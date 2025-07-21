@@ -45,9 +45,14 @@ except ImportError:
 
 try:
     from sentence_transformers import SentenceTransformer
+    from sklearn.feature_extraction.text import TfidfVectorizer
+    from sklearn.metrics.pairwise import cosine_similarity
     SENTENCE_TRANSFORMERS_AVAILABLE = True
+    SKLEARN_AVAILABLE = True
 except ImportError:
     SENTENCE_TRANSFORMERS_AVAILABLE = False
+    SKLEARN_AVAILABLE = False
+    logging.warning("Sentence transformers or sklearn not available - using basic similarity")
     logging.warning("sentence-transformers not available - semantic similarity disabled")
 
 try:
@@ -662,17 +667,278 @@ class IntelligentProcessor:
             outline += f"{i+1}. {sentence}\n"
         return outline.strip()
     
+    def extract_key_themes(self, text: str, page_number: int = 1) -> List[ProcessingResult]:
+        """Extract key themes and topics from text"""
+        results = []
+        
+        try:
+            if SKLEARN_AVAILABLE and len(text.split()) > 50:
+                # Use TF-IDF for theme extraction
+                sentences = self._smart_sentence_split(text)
+                
+                # Create TF-IDF matrix
+                vectorizer = TfidfVectorizer(
+                    max_features=20,
+                    stop_words='english',
+                    ngram_range=(1, 2)
+                )
+                
+                tfidf_matrix = vectorizer.fit_transform(sentences)
+                feature_names = vectorizer.get_feature_names_out()
+                
+                # Get top terms per sentence
+                themes = []
+                for i, sentence in enumerate(sentences):
+                    if i < tfidf_matrix.shape[0]:
+                        scores = tfidf_matrix[i].toarray()[0]
+                        top_indices = scores.argsort()[-3:][::-1]
+                        
+                        theme_terms = [feature_names[idx] for idx in top_indices if scores[idx] > 0.1]
+                        if theme_terms:
+                            themes.extend(theme_terms)
+                
+                # Get unique themes
+                unique_themes = list(set(themes))[:10]
+                
+                if unique_themes:
+                    theme_content = "**Key Themes Identified:**\n\n"
+                    for i, theme in enumerate(unique_themes, 1):
+                        theme_content += f"{i}. {theme.title()}\n"
+                    
+                    result = ProcessingResult(
+                        type="theme_analysis",
+                        content=theme_content,
+                        source_page=page_number,
+                        confidence=0.8,
+                        source_text=text[:200] + "...",
+                        metadata={
+                            'themes': unique_themes,
+                            'method': 'tfidf',
+                            'total_themes': len(unique_themes)
+                        }
+                    )
+                    results.append(result)
+            
+            else:
+                # Fallback: Simple keyword frequency
+                words = re.findall(r'\b\w{4,}\b', text.lower())
+                word_freq = {}
+                
+                for word in words:
+                    if word not in self.stop_words:
+                        word_freq[word] = word_freq.get(word, 0) + 1
+                
+                # Get top themes
+                top_themes = sorted(word_freq.items(), key=lambda x: x[1], reverse=True)[:8]
+                
+                if top_themes:
+                    theme_content = "**Key Themes (Basic Analysis):**\n\n"
+                    for i, (theme, count) in enumerate(top_themes, 1):
+                        theme_content += f"{i}. {theme.title()} (mentioned {count} times)\n"
+                    
+                    result = ProcessingResult(
+                        type="theme_analysis",
+                        content=theme_content,
+                        source_page=page_number,
+                        confidence=0.6,
+                        source_text=text[:200] + "...",
+                        metadata={
+                            'themes': [t[0] for t in top_themes],
+                            'method': 'frequency',
+                            'total_themes': len(top_themes)
+                        }
+                    )
+                    results.append(result)
+                    
+        except Exception as e:
+            logger.error(f"Theme extraction error: {e}")
+            
+        return results
+    
+    def analyze_document_structure(self, text: str, page_number: int = 1) -> List[ProcessingResult]:
+        """Analyze document structure and organization"""
+        results = []
+        
+        try:
+            lines = text.split('\n')
+            
+            # Detect headings and structure
+            headings = []
+            paragraphs = []
+            lists = []
+            
+            for line in lines:
+                line = line.strip()
+                if not line:
+                    continue
+                    
+                # Detect headings (simple heuristics)
+                if (len(line) < 100 and 
+                    (line.isupper() or 
+                     line.startswith(('#', '##', '###')) or
+                     re.match(r'^\d+\.?\s+[A-Z]', line) or
+                     line.endswith(':'))):
+                    headings.append(line)
+                
+                # Detect lists
+                elif re.match(r'^\s*[-•*]\s+', line) or re.match(r'^\s*\d+\.\s+', line):
+                    lists.append(line)
+                
+                # Regular paragraphs
+                elif len(line) > 20:
+                    paragraphs.append(line)
+            
+            # Create structure analysis
+            structure_content = "**Document Structure Analysis:**\n\n"
+            
+            if headings:
+                structure_content += f"**Headings Found ({len(headings)}):**\n"
+                for heading in headings[:5]:
+                    structure_content += f"• {heading}\n"
+                if len(headings) > 5:
+                    structure_content += f"• ... and {len(headings) - 5} more\n"
+                structure_content += "\n"
+            
+            structure_content += f"**Content Statistics:**\n"
+            structure_content += f"• Paragraphs: {len(paragraphs)}\n"
+            structure_content += f"• Lists/Bullets: {len(lists)}\n"
+            structure_content += f"• Headings: {len(headings)}\n"
+            
+            # Readability assessment
+            avg_sentence_length = len(text.split()) / max(len(self._smart_sentence_split(text)), 1)
+            
+            if avg_sentence_length < 15:
+                readability = "Easy to read"
+            elif avg_sentence_length < 25:
+                readability = "Moderate complexity"
+            else:
+                readability = "Complex/Academic"
+            
+            structure_content += f"• Readability: {readability}\n"
+            structure_content += f"• Avg. sentence length: {avg_sentence_length:.1f} words\n"
+            
+            result = ProcessingResult(
+                type="structure_analysis",
+                content=structure_content,
+                source_page=page_number,
+                confidence=0.9,
+                source_text=text[:200] + "...",
+                metadata={
+                    'headings': headings,
+                    'paragraph_count': len(paragraphs),
+                    'list_count': len(lists),
+                    'readability_score': avg_sentence_length,
+                    'readability_level': readability
+                }
+            )
+            results.append(result)
+            
+        except Exception as e:
+            logger.error(f"Structure analysis error: {e}")
+            
+        return results
+    
+    def generate_content_insights(self, text: str, page_number: int = 1) -> List[ProcessingResult]:
+        """Generate insights about content characteristics"""
+        results = []
+        
+        try:
+            # Content metrics
+            word_count = len(text.split())
+            char_count = len(text)
+            sentences = self._smart_sentence_split(text)
+            sentence_count = len(sentences)
+            
+            # Language detection (basic)
+            english_indicators = ['the', 'and', 'to', 'of', 'a', 'in', 'is', 'it', 'you', 'that']
+            english_score = sum(1 for word in english_indicators if word in text.lower().split())
+            
+            # Content type detection
+            question_marks = text.count('?')
+            exclamations = text.count('!')
+            
+            # Technical content indicators
+            tech_patterns = [
+                r'\b\d+\.\d+\b',  # Version numbers
+                r'\b[A-Z]{2,}\b',  # Acronyms
+                r'\bAPI\b|\bHTTP\b|\bJSON\b|\bXML\b',  # Tech terms
+                r'\b\w+\(\)\b',  # Function calls
+            ]
+            
+            tech_score = sum(len(re.findall(pattern, text)) for pattern in tech_patterns)
+            
+            # Generate insights
+            insights_content = "**Content Insights:**\n\n"
+            
+            # Basic metrics
+            insights_content += f"**Metrics:**\n"
+            insights_content += f"• Words: {word_count:,}\n"
+            insights_content += f"• Characters: {char_count:,}\n"
+            insights_content += f"• Sentences: {sentence_count}\n"
+            insights_content += f"• Avg words per sentence: {word_count/max(sentence_count,1):.1f}\n\n"
+            
+            # Content characteristics
+            insights_content += f"**Characteristics:**\n"
+            
+            if question_marks > sentence_count * 0.1:
+                insights_content += f"• High question density ({question_marks} questions)\n"
+            
+            if exclamations > sentence_count * 0.05:
+                insights_content += f"• Emphatic content ({exclamations} exclamations)\n"
+            
+            if tech_score > 10:
+                insights_content += f"• Technical content detected\n"
+            
+            if english_score > 5:
+                insights_content += f"• Primary language: English\n"
+            
+            # Content complexity
+            if word_count > 1000:
+                complexity = "Long-form content"
+            elif word_count > 300:
+                complexity = "Medium-length content"
+            else:
+                complexity = "Short content"
+                
+            insights_content += f"• Content length: {complexity}\n"
+            
+            result = ProcessingResult(
+                type="content_insights",
+                content=insights_content,
+                source_page=page_number,
+                confidence=0.85,
+                source_text=text[:200] + "...",
+                metadata={
+                    'word_count': word_count,
+                    'sentence_count': sentence_count,
+                    'questions': question_marks,
+                    'exclamations': exclamations,
+                    'tech_score': tech_score,
+                    'complexity': complexity,
+                    'language_score': english_score
+                }
+            )
+            results.append(result)
+            
+        except Exception as e:
+            logger.error(f"Content insights error: {e}")
+            
+        return results
+
     def get_processing_capabilities(self) -> Dict[str, bool]:
         """Get available processing capabilities"""
         return {
             'spacy_nlp': self.spacy_available,
             'nltk_processing': self.nltk_available,
             'semantic_similarity': self.sentence_transformers_available,
-            'advanced_analysis': self.sklearn_available,
+            'advanced_analysis': SKLEARN_AVAILABLE if 'SKLEARN_AVAILABLE' in globals() else False,
             'keyword_extraction': True,
             'context_analysis': True,
             'question_generation': True,
             'summarization': True,
+            'theme_extraction': True,
+            'structure_analysis': True,
+            'content_insights': True,
             'entity_extraction': self.spacy_available
         }
 
