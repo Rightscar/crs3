@@ -47,22 +47,25 @@ class GPTDialogueGenerator:
     
     def __init__(self):
         self.openai_available = OPENAI_AVAILABLE
-        self.api_key = None
+        self.api_key = os.getenv('OPENAI_API_KEY')
+        self.client = None
+        
+        # Initialize OpenAI client if API key is available
+        if self.api_key and OPENAI_AVAILABLE:
+            try:
+                self.client = openai.OpenAI(api_key=self.api_key)
+                logger.info("OpenAI client initialized successfully")
+            except Exception as e:
+                logger.error(f"Failed to initialize OpenAI client: {e}")
+                self.openai_available = False
+        else:
+            logger.warning("OpenAI API key not found or OpenAI not available - using demo mode")
         self._initialize_openai()
         
     def _initialize_openai(self):
-        """Initialize OpenAI API"""
-        if not self.openai_available:
-            logger.warning("OpenAI not available")
-            return
-            
-        # Try to get API key from environment
-        self.api_key = os.getenv("OPENAI_API_KEY")
-        if self.api_key:
-            openai.api_key = self.api_key
-            logger.info("OpenAI API key loaded from environment")
-        else:
-            logger.warning("OpenAI API key not found in environment")
+        """Initialize OpenAI API - now handled in __init__"""
+        # This method is now redundant but kept for compatibility
+        pass
     
     def generate_dialogues(self, chunks: List[Dict[str, Any]], 
                           dialogue_style: str = "Q&A",
