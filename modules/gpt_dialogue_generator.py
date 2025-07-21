@@ -67,6 +67,150 @@ class GPTDialogueGenerator:
         # This method is now redundant but kept for compatibility
         pass
     
+    def generate_dialogue_real(self, chunk_text: str, 
+                             dialogue_style: str = "Q&A",
+                             questions_count: int = 3,
+                             model: str = "gpt-3.5-turbo",
+                             temperature: float = 0.7) -> Dict[str, Any]:
+        """Generate real dialogue using OpenAI API"""
+        
+        if not self.client:
+            logger.warning("OpenAI client not available, falling back to demo mode")
+            return self._generate_demo_dialogue(chunk_text, questions_count)
+        
+        try:
+            # Build prompt based on dialogue style
+            prompt = self._build_dialogue_prompt(chunk_text, dialogue_style, questions_count)
+            
+            # Make API call to OpenAI
+            response = self.client.chat.completions.create(
+                model=model,
+                messages=[
+                    {"role": "system", "content": "You are an expert at creating educational dialogues from text content."},
+                    {"role": "user", "content": prompt}
+                ],
+                temperature=temperature,
+                max_tokens=1000
+            )
+            
+            # Parse the response
+            generated_content = response.choices[0].message.content
+            
+            # Calculate quality score based on content
+            quality_score = self._calculate_quality_score(generated_content, chunk_text)
+            
+            return {
+                "content": generated_content,
+                "word_count": len(generated_content.split()),
+                "quality_score": quality_score,
+                "model_used": model,
+                "temperature": temperature,
+                "questions_count": questions_count,
+                "style": dialogue_style,
+                "api_usage": {
+                    "prompt_tokens": response.usage.prompt_tokens,
+                    "completion_tokens": response.usage.completion_tokens,
+                    "total_tokens": response.usage.total_tokens
+                }
+            }
+            
+        except Exception as e:
+            logger.error(f"OpenAI API error: {e}")
+            # Fallback to demo mode
+            return self._generate_demo_dialogue(chunk_text, questions_count)
+    
+    def _build_dialogue_prompt(self, chunk_text: str, style: str, questions_count: int) -> str:
+        """Build prompt for OpenAI based on dialogue style"""
+        
+        base_prompt = f"""Please create {questions_count} high-quality questions and answers based on the following text content.
+
+Text Content:
+{chunk_text}
+
+Requirements:
+- Generate exactly {questions_count} question-answer pairs
+- Make questions thought-provoking and educational
+- Ensure answers are accurate and based only on the provided text
+- """
+        
+        if style == "Q&A":
+            base_prompt += """- Format as: Q: [question] A: [answer]
+- Questions should test comprehension and analysis"""
+            
+        elif style == "Interview":
+            base_prompt += """- Format as: Interviewer: [question] Expert: [answer]
+- Questions should be conversational and exploratory"""
+            
+        elif style == "Socratic":
+            base_prompt += """- Format as: Q: [question] A: [answer]
+- Questions should be probing and lead to deeper thinking"""
+            
+        elif style == "Academic":
+            base_prompt += """- Format as: Q: [question] A: [answer]
+- Questions should be scholarly and analytical"""
+        
+        base_prompt += "\n\nGenerate the dialogue now:"
+        
+        return base_prompt
+    
+    def _calculate_quality_score(self, generated_content: str, source_text: str) -> float:
+        """Calculate quality score for generated dialogue"""
+        try:
+            # Basic quality metrics
+            word_count = len(generated_content.split())
+            source_word_count = len(source_text.split())
+            
+            # Length ratio (should be reasonable)
+            length_ratio = word_count / max(source_word_count, 1)
+            length_score = min(1.0, max(0.0, 1.0 - abs(length_ratio - 0.5)))
+            
+            # Question count detection
+            question_count = generated_content.count('Q:') + generated_content.count('?')
+            question_score = min(1.0, question_count / 3.0)
+            
+            # Answer presence
+            answer_indicators = ['A:', 'Expert:', 'Answer:', 'Response:']
+            answer_count = sum(generated_content.count(indicator) for indicator in answer_indicators)
+            answer_score = min(1.0, answer_count / 3.0)
+            
+            # Overall score (weighted average)
+            overall_score = (length_score * 0.3 + question_score * 0.4 + answer_score * 0.3)
+            
+            return max(0.1, min(1.0, overall_score))
+            
+        except Exception as e:
+            logger.warning(f"Error calculating quality score: {e}")
+            return 0.7  # Default score
+    
+    def _generate_demo_dialogue(self, chunk_text: str, questions_count: int) -> Dict[str, Any]:
+        """Generate demo dialogue when OpenAI is not available"""
+        
+        # Extract key concepts for demo questions
+        words = chunk_text.split()
+        key_words = [word for word in words if len(word) > 5][:5]
+        
+        demo_content = ""
+        for i in range(min(questions_count, 3)):
+            if i == 0:
+                demo_content += f"Q: What is the main topic discussed in this content?\n"
+                demo_content += f"A: The content discusses {', '.join(key_words[:2])} and related concepts.\n\n"
+            elif i == 1:
+                demo_content += f"Q: What are the key points mentioned?\n"
+                demo_content += f"A: The key points include information about {', '.join(key_words[2:4])} among other topics.\n\n"
+            else:
+                demo_content += f"Q: How can this information be applied?\n"
+                demo_content += f"A: This information provides insights that can be used to understand {key_words[-1] if key_words else 'the topic'} better.\n\n"
+        
+        return {
+            "content": demo_content.strip(),
+            "word_count": len(demo_content.split()),
+            "quality_score": 0.75,  # Demo mode quality
+            "model_used": "demo",
+            "questions_count": min(questions_count, 3),
+            "style": "Q&A",
+            "is_demo": True
+        }
+
     def generate_dialogues(self, chunks: List[Dict[str, Any]], 
                           dialogue_style: str = "Q&A",
                           topics: List[str] = None,
