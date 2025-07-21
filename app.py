@@ -1,7 +1,17 @@
 #!/usr/bin/env python3
 """
-Universal Text-to-Dialogue AI - Bulletproof Production Edition
-Zero-error deployment with comprehensive fallbacks and robust error handling.
+Universal Document Reader & AI Processor
+========================================
+
+Adobe-style document reader with intelligent AI processing pipeline.
+Combines document viewing, NLP processing, and real-time editing in a unified interface.
+
+Features:
+- Three-panel interface (Navigation | Reader | Processor)
+- Multi-format document support (PDF, DOCX, TXT, MD, EPUB)
+- Real-time NLP processing with OpenAI integration
+- Page-by-page workflow with intelligent content analysis
+- Advanced export system with multiple formats
 """
 
 import streamlit as st
@@ -9,28 +19,47 @@ import os
 import sys
 import time
 import json
+import logging
 from typing import Dict, List, Any, Optional
 from datetime import datetime
+from pathlib import Path
 
 # Configure page first
 st.set_page_config(
-    page_title="Universal Text-to-Dialogue AI",
-    page_icon="🧠",
+    page_title="Universal Document Reader & AI Processor",
+    page_icon="📖",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# Premium CSS styling
+# Import our modules
+try:
+    from modules.universal_document_reader import UniversalDocumentReader, DocumentMetadata, DocumentPage
+    from modules.intelligent_processor import IntelligentProcessor, ProcessingResult
+    from modules.gpt_dialogue_generator import GPTDialogueGenerator
+    from modules.enhanced_universal_extractor import EnhancedUniversalExtractor
+    from modules.multi_format_exporter import MultiFormatExporter
+    MODULES_AVAILABLE = True
+except ImportError as e:
+    st.error(f"❌ Module import error: {e}")
+    st.stop()
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# Load environment variables
+from dotenv import load_dotenv
+load_dotenv()
+
+# Custom CSS for three-panel layout
 st.markdown("""
 <style>
     @import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap");
     
-    .main { font-family: "Inter", sans-serif; }
-    
-    [data-testid="stSidebar"] {
-        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-        backdrop-filter: blur(10px);
-        border-right: 1px solid rgba(255, 255, 255, 0.1);
+    .main { 
+        font-family: "Inter", sans-serif; 
+        padding: 0rem !important;
     }
     
     .stApp {
@@ -38,75 +67,87 @@ st.markdown("""
         color: #ffffff;
     }
     
-    .premium-header {
-        background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
-        padding: 2rem;
-        border-radius: 15px;
-        margin-bottom: 2rem;
-        box-shadow: 0 8px 32px rgba(102, 126, 234, 0.3);
+    /* Three-panel layout */
+    .main-container {
+        display: flex;
+        height: 100vh;
+        overflow: hidden;
+    }
+    
+    .nav-panel {
+        width: 280px;
+        background: rgba(15, 15, 35, 0.95);
         backdrop-filter: blur(10px);
-        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-right: 1px solid rgba(255, 255, 255, 0.1);
+        overflow-y: auto;
+        padding: 1rem;
     }
     
-    .premium-title {
-        font-size: 3rem;
-        font-weight: 700;
-        background: linear-gradient(45deg, #ffffff, #f0f0f0);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        margin: 0;
-        text-align: center;
+    .reader-panel {
+        flex: 1;
+        background: rgba(20, 20, 40, 0.95);
+        overflow-y: auto;
+        position: relative;
+        display: flex;
+        flex-direction: column;
     }
     
-    .premium-subtitle {
-        font-size: 1.2rem;
-        color: rgba(255, 255, 255, 0.8);
-        text-align: center;
-        margin-top: 0.5rem;
+    .processor-panel {
+        width: 380px;
+        background: rgba(15, 15, 35, 0.95);
+        backdrop-filter: blur(10px);
+        border-left: 1px solid rgba(255, 255, 255, 0.1);
+        overflow-y: auto;
+        padding: 1rem;
     }
     
-    .feature-card {
+    /* Document viewer styles */
+    .document-container {
+        max-width: 900px;
+        margin: 0 auto;
+        padding: 20px;
+        background: white;
+        box-shadow: 0 0 30px rgba(0,0,0,0.3);
+        border-radius: 8px;
+        color: black;
+        min-height: 600px;
+    }
+    
+    .page-controls {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 1rem;
+        padding: 1rem;
+        background: rgba(0,0,0,0.1);
+        border-radius: 8px;
+        margin-bottom: 1rem;
+    }
+    
+    /* Processing results */
+    .processing-result {
         background: rgba(255, 255, 255, 0.05);
-        backdrop-filter: blur(10px);
         border: 1px solid rgba(255, 255, 255, 0.1);
-        border-radius: 15px;
-        padding: 1.5rem;
-        margin: 1rem 0;
-        transition: all 0.3s ease;
+        border-radius: 8px;
+        padding: 1rem;
+        margin: 0.5rem 0;
+        transition: all 0.2s ease;
     }
     
-    .feature-card:hover {
-        transform: translateY(-5px);
-        box-shadow: 0 15px 35px rgba(102, 126, 234, 0.2);
-        border-color: rgba(102, 126, 234, 0.5);
+    .processing-result:hover {
+        border-color: rgba(102, 126, 234, 0.3);
+        box-shadow: 0 4px 20px rgba(102, 126, 234, 0.1);
     }
     
-    .status-indicator {
-        display: inline-block;
-        width: 12px;
-        height: 12px;
-        border-radius: 50%;
-        margin-right: 8px;
-        animation: pulse 2s infinite;
-    }
-    
-    .status-success { background: #4ade80; }
-    .status-warning { background: #fbbf24; }
-    .status-error { background: #f87171; }
-    .status-processing { background: #667eea; }
-    
-    @keyframes pulse {
-        0%, 100% { opacity: 1; }
-        50% { opacity: 0.5; }
-    }
-    
+    /* Buttons */
     .stButton > button {
         background: linear-gradient(45deg, #667eea, #764ba2);
         border: none;
-        border-radius: 8px;
+        border-radius: 6px;
         color: white;
         font-weight: 500;
         transition: all 0.2s ease;
+        width: 100%;
     }
     
     .stButton > button:hover {
@@ -114,805 +155,925 @@ st.markdown("""
         box-shadow: 0 8px 25px rgba(102, 126, 234, 0.3);
     }
     
+    /* Metrics */
+    .metric-container {
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 8px;
+        padding: 1rem;
+        margin: 0.5rem 0;
+    }
+    
+    /* Hide streamlit elements */
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     header {visibility: hidden;}
+    
+    .stSelectbox label, .stTextInput label, .stTextArea label {
+        color: #ffffff !important;
+    }
 </style>
 """, unsafe_allow_html=True)
 
-class UniversalTextToDialogueBulletproof:
-    """Bulletproof Production Edition with Zero-Error Deployment"""
+class UniversalDocumentReaderApp:
+    """Main application class for Universal Document Reader & AI Processor"""
     
     def __init__(self):
-        """Initialize with comprehensive error handling"""
+        """Initialize the application"""
+        self.document_reader = UniversalDocumentReader()
+        self.nlp_processor = IntelligentProcessor()
+        self.ai_generator = GPTDialogueGenerator()
+        self.exporter = MultiFormatExporter()
+        
         self._initialize_session_state()
-        self._check_dependencies()
+        self._check_system_capabilities()
     
     def _initialize_session_state(self):
-        """Initialize session state with defaults"""
+        """Initialize session state variables"""
         defaults = {
-            "uploaded_content": None,
-            "chunks": [],
-            "selected_chunks": [],
-            "generated_dialogues": [],
-            "gpt_config": {
-                "model": "gpt-3.5-turbo",
-                "temperature": 0.7,
-                "style": "Conversational",
-                "format": "Q&A",
-                "max_tokens": 1000
-            },
-            "file_history": [],
-            "processing_status": "ready",
-            "current_step": 1,
+            # Document state
+            "current_document": None,
+            "current_page": 1,
+            "total_pages": 0,
+            "zoom_level": 1.0,
+            "document_loaded": False,
+            
+            # Navigation state
+            "bookmarks": [],
+            "search_results": [],
+            "table_of_contents": [],
+            "selected_text": "",
+            "highlight_areas": [],
+            
+            # Processing state
+            "processing_results": [],
+            "processing_history": {},
+            "current_processing_mode": "Keyword Analysis",
+            "auto_process_enabled": False,
+            "processing_queue": [],
+            
+            # Settings
+            "keywords": "",
+            "context_query": "",
+            "ai_model": "gpt-3.5-turbo",
+            "ai_temperature": 0.7,
+            "questions_per_page": 3,
+            "processing_quality_threshold": 0.7,
+            
+            # UI state
+            "show_processing_panel": True,
+            "show_navigation_panel": True,
+            "current_view": "reader",
+            
+            # Session info
             "session_start_time": time.time(),
-            "processing_times": {},
-            "quality_scores": {},
-            "dependencies_checked": False,
-            "available_features": {}
+            "files_processed": 0,
+            "total_processing_operations": 0
         }
         
         for key, value in defaults.items():
             if key not in st.session_state:
                 st.session_state[key] = value
     
-    def _check_dependencies(self):
-        """Check available dependencies and features"""
-        if st.session_state.dependencies_checked:
-            return
+    def _check_system_capabilities(self):
+        """Check and display system capabilities"""
+        capabilities = {
+            "Document Reader": self.document_reader.get_supported_formats(),
+            "NLP Processor": self.nlp_processor.get_processing_capabilities(),
+            "AI Generator": self.ai_generator.openai_available,
+            "Export Formats": ["JSON", "JSONL", "CSV", "Markdown", "HTML"]
+        }
         
-        features = {}
-        
-        # Check core dependencies
-        try:
-            import pandas as pd
-            features["pandas"] = True
-        except ImportError:
-            features["pandas"] = False
-        
-        try:
-            import PyPDF2
-            features["pdf_processing"] = True
-        except ImportError:
-            features["pdf_processing"] = False
-        
-        try:
-            import openai
-            features["openai"] = True
-        except ImportError:
-            features["openai"] = False
-        
-        # Check optional dependencies
-        try:
-            import spacy
-            features["spacy"] = True
-        except ImportError:
-            features["spacy"] = False
-        
-        try:
-            from docx import Document
-            features["docx"] = True
-        except ImportError:
-            features["docx"] = False
-        
-        st.session_state.available_features = features
-        st.session_state.dependencies_checked = True
+        st.session_state.system_capabilities = capabilities
     
     def run(self):
-        """Run the bulletproof application"""
+        """Main application entry point"""
         try:
-            # Render premium header
-            self._render_premium_header()
+            # Render header
+            self._render_header()
             
-            # Show system status
-            self._render_system_status()
-            
-            # Render enhanced sidebar
-            self._render_enhanced_sidebar()
-            
-            # Main content with tabs
-            self._render_main_content()
-            
+            # Main three-panel interface
+            if st.session_state.document_loaded:
+                self._render_three_panel_interface()
+            else:
+                self._render_welcome_screen()
+                
         except Exception as e:
+            logger.error(f"Application error: {e}")
             st.error(f"⚠️ Application error: {str(e)}")
-            st.info("The application is running in safe mode. Some features may be limited.")
-            
-            # Fallback minimal interface
-            self._render_fallback_interface()
+            st.info("The application encountered an error but is still running.")
     
-    def _render_premium_header(self):
-        """Render premium header with animations"""
-        st.markdown("""
-        <div class="premium-header">
-            <h1 class="premium-title">🧠 Universal Text-to-Dialogue AI</h1>
-            <p class="premium-subtitle">Transform ANY content into engaging dialogues with AI precision</p>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        # Real-time metrics
-        col1, col2, col3, col4 = st.columns(4)
+    def _render_header(self):
+        """Render application header with metrics"""
+        col1, col2, col3, col4, col5 = st.columns([3, 1, 1, 1, 1])
         
         with col1:
-            files_processed = len(st.session_state.file_history)
-            st.metric("📁 Files Processed", files_processed)
+            st.markdown("# 📖 Universal Document Reader & AI Processor")
         
         with col2:
-            dialogues_count = len(st.session_state.generated_dialogues)
-            st.metric("💬 Dialogues Generated", dialogues_count)
+            if st.session_state.document_loaded:
+                st.metric("Page", f"{st.session_state.current_page}/{st.session_state.total_pages}")
         
         with col3:
-            if st.session_state.quality_scores:
-                avg_quality = sum(st.session_state.quality_scores.values()) / len(st.session_state.quality_scores)
-                st.metric("⭐ Avg Quality", f"{avg_quality:.1%}")
-            else:
-                st.metric("⭐ Avg Quality", "N/A")
+            st.metric("Results", len(st.session_state.processing_results))
         
         with col4:
             session_time = time.time() - st.session_state.session_start_time
-            st.metric("⏱️ Session Time", f"{session_time/60:.1f}m")
+            st.metric("Session", f"{session_time/60:.1f}m")
+        
+        with col5:
+            st.metric("Files", st.session_state.files_processed)
     
-    def _render_system_status(self):
-        """Render system status and available features"""
-        with st.expander("🔧 System Status & Available Features", expanded=False):
-            col1, col2 = st.columns(2)
-            
-            with col1:
-                st.markdown("**Core Features:**")
-                features = st.session_state.available_features
-                
-                status_icon = "✅" if features.get("pandas", False) else "⚠️"
-                st.write(f"{status_icon} Data Processing: {'Available' if features.get('pandas', False) else 'Limited'}")
-                
-                status_icon = "✅" if features.get("pdf_processing", False) else "⚠️"
-                st.write(f"{status_icon} PDF Processing: {'Available' if features.get('pdf_processing', False) else 'Text Only'}")
-                
-                status_icon = "✅" if features.get("openai", False) else "⚠️"
-                st.write(f"{status_icon} AI Generation: {'Available' if features.get('openai', False) else 'Demo Mode'}")
-            
-            with col2:
-                st.markdown("**Enhanced Features:**")
-                
-                status_icon = "✅" if features.get("spacy", False) else "⚠️"
-                st.write(f"{status_icon} Advanced NLP: {'Available' if features.get('spacy', False) else 'Basic Mode'}")
-                
-                status_icon = "✅" if features.get("docx", False) else "⚠️"
-                st.write(f"{status_icon} Word Documents: {'Available' if features.get('docx', False) else 'Not Available'}")
-                
-                st.write("✅ Export Options: Always Available")
-    
-    def _render_enhanced_sidebar(self):
-        """Render enhanced sidebar"""
-        with st.sidebar:
-            st.markdown("### 🎛️ Control Center")
-            
-            # Quick actions
-            col1, col2 = st.columns(2)
-            with col1:
-                if st.button("🔄 Reset", use_container_width=True):
-                    self._reset_session()
-                    st.rerun()
-            
-            with col2:
-                if st.button("💾 Save", use_container_width=True):
-                    st.success("Session saved!")
-            
-            # File history
-            st.markdown("#### 📁 Recent Files")
-            if st.session_state.file_history:
-                for filename in st.session_state.file_history[-5:][::-1]:
-                    st.write(f"📄 {filename[:30]}{'...' if len(filename) > 30 else ''}")
-            else:
-                st.info("No files processed yet")
-            
-            # System status
-            st.markdown("#### 🖥️ System Status")
-            status_color = {
-                "ready": "🟢",
-                "processing": "🟡", 
-                "complete": "🟢",
-                "error": "🔴"
-            }.get(st.session_state.processing_status, "⚪")
-            
-            st.markdown(f"{status_color} **Status:** {st.session_state.processing_status.title()}")
-            
-            # Environment info
-            st.markdown("#### 🔧 Environment")
-            st.write(f"Python: {sys.version.split()[0]}")
-            st.write(f"Streamlit: {st.__version__}")
-    
-    def _render_main_content(self):
-        """Render main content with enhanced tabs"""
-        tab1, tab2, tab3, tab4, tab5 = st.tabs([
-            "📁 Upload & Preview",
-            "⚙️ GPT Configuration", 
-            "⚡ Quick Run",
-            "✅ Generation & Validation",
-            "📊 Dashboard & Export"
-        ])
+    def _render_welcome_screen(self):
+        """Render welcome screen with file upload"""
+        st.markdown("---")
         
-        with tab1:
-            self._render_upload_tab()
+        # Welcome content
+        col1, col2, col3 = st.columns([1, 2, 1])
         
-        with tab2:
-            self._render_config_tab()
-        
-        with tab3:
-            self._render_quick_run_tab()
-        
-        with tab4:
-            self._render_generation_tab()
-        
-        with tab5:
-            self._render_dashboard_tab()
-    
-    def _render_upload_tab(self):
-        """Render upload and preview tab"""
-        st.markdown("### 📤 Upload & Content Preview")
-        
-        # File uploader with supported types based on available features
-        supported_types = ["txt"]
-        if st.session_state.available_features.get("pdf_processing", False):
-            supported_types.append("pdf")
-        if st.session_state.available_features.get("docx", False):
-            supported_types.append("docx")
-        
-        uploaded_file = st.file_uploader(
-            "Drop your document here or click to browse",
-            type=supported_types,
-            help=f"Supported formats: {', '.join(supported_types).upper()}"
-        )
-        
-        if uploaded_file:
-            # File info
-            col1, col2, col3 = st.columns(3)
-            
-            with col1:
-                st.metric("📄 File Name", uploaded_file.name)
-            
-            with col2:
-                file_size_kb = uploaded_file.size / 1024
-                st.metric("📏 File Size", f"{file_size_kb:.1f} KB")
-            
-            with col3:
-                file_type = uploaded_file.type.split("/")[-1].upper()
-                st.metric("📋 File Type", file_type)
-            
-            # Process file
-            with st.spinner("🔍 Processing document..."):
-                try:
-                    content = self._extract_text_safe(uploaded_file)
-                    
-                    if content:
-                        st.session_state.uploaded_content = content
-                        
-                        # Add to file history
-                        if uploaded_file.name not in st.session_state.file_history:
-                            st.session_state.file_history.append(uploaded_file.name)
-                        
-                        st.success("✅ File successfully processed!")
-                        
-                        # Content preview
-                        with st.expander("👁️ Content Preview", expanded=True):
-                            preview_text = content[:500] + "..." if len(content) > 500 else content
-                            st.text_area("Extracted Content", preview_text, height=150, disabled=True)
-                        
-                        # Generate chunks
-                        st.markdown("### 🧩 Content Chunking")
-                        
-                        with st.spinner("🔄 Creating chunks..."):
-                            chunks = self._create_chunks_safe(content)
-                            st.session_state.chunks = chunks
-                        
-                        # Display chunks
-                        if chunks:
-                            st.markdown(f"**Found {len(chunks)} content chunks:**")
-                            
-                            selected_indices = []
-                            for i, chunk in enumerate(chunks):
-                                chunk_text = chunk.get("text", str(chunk))
-                                display_text = chunk_text[:200] + "..." if len(chunk_text) > 200 else chunk_text
-                                
-                                is_selected = st.checkbox(
-                                    f"**Chunk {i+1}** ({len(chunk_text)} chars)",
-                                    key=f"chunk_select_{i}",
-                                    value=True
-                                )
-                                
-                                if is_selected:
-                                    selected_indices.append(i)
-                                
-                                st.markdown(f"*{display_text}*")
-                            
-                            st.session_state.selected_chunks = [chunks[i] for i in selected_indices]
-                            
-                            if selected_indices:
-                                st.success(f"✅ Selected {len(selected_indices)} chunks for processing")
-                    else:
-                        st.error("❌ Could not extract text from file")
-                        
-                except Exception as e:
-                    st.error(f"❌ Error processing file: {str(e)}")
-                    st.info("Try uploading a different file or check the file format.")
-        
-        else:
-            # Upload instructions
+        with col2:
             st.markdown("""
-            <div class="feature-card">
-                <h4>🎯 Getting Started</h4>
-                <p>Upload any text-based document to begin:</p>
-                <ul>
-                    <li>📝 <strong>TXT</strong> - Plain text files (always supported)</li>
-                    <li>📄 <strong>PDF</strong> - Documents and books (if PyPDF2 available)</li>
-                    <li>📋 <strong>DOCX</strong> - Word documents (if python-docx available)</li>
-                </ul>
-                <p><em>Available formats depend on installed dependencies.</em></p>
+            <div style="text-align: center; padding: 3rem 0;">
+                <h2>📚 Welcome to Document Reader & AI Processor</h2>
+                <p style="font-size: 1.2em; opacity: 0.8;">
+                    Upload any document to start reading and processing with AI
+                </p>
             </div>
             """, unsafe_allow_html=True)
-    
-    def _render_config_tab(self):
-        """Render GPT configuration tab"""
-        st.markdown("### ⚙️ GPT Configuration")
-        
-        if not st.session_state.uploaded_content:
-            st.warning("⚠️ Please upload a file first")
-            return
-        
-        # Check if OpenAI is available
-        if not st.session_state.available_features.get("openai", False):
-            st.warning("⚠️ OpenAI library not available. Running in demo mode.")
-        
-        with st.form("gpt_config_form"):
-            col1, col2 = st.columns(2)
             
-            with col1:
-                model = st.selectbox("AI Model", ["gpt-3.5-turbo", "gpt-4"], index=0)
-                temperature = st.slider("Creativity", 0.0, 1.0, 0.7, 0.1)
+            # File uploader
+            uploaded_file = st.file_uploader(
+                "Choose a document",
+                type=['pdf', 'docx', 'txt', 'md', 'epub', 'html'],
+                help="Supported formats: PDF, DOCX, TXT, MD, EPUB, HTML"
+            )
             
-            with col2:
-                style = st.selectbox("Style", ["Conversational", "Interview", "Q&A"], index=0)
-                max_tokens = st.number_input("Max Length", 100, 2000, 1000, 100)
+            if uploaded_file:
+                self._load_document(uploaded_file)
             
-            if st.form_submit_button("💾 Save Configuration"):
-                st.session_state.gpt_config = {
-                    "model": model,
-                    "temperature": temperature,
-                    "style": style,
-                    "max_tokens": max_tokens
-                }
-                st.success("✅ Configuration saved!")
-    
-    def _render_quick_run_tab(self):
-        """Render quick run tab"""
-        st.markdown("### ⚡ Quick Run Mode")
-        
-        st.info("💡 Test the system with sample content or your own text")
-        
-        sample_content = st.text_area(
-            "Sample content",
-            "What is consciousness? How do we understand awareness and subjective experience? These questions have puzzled philosophers and scientists for centuries.",
-            height=100
-        )
-        
-        if st.button("🔁 Run Quick Demo", type="primary"):
-            if sample_content:
-                with st.spinner("🚀 Running demo..."):
-                    # Simulate processing
-                    time.sleep(2)
-                    
-                    # Generate mock dialogue
-                    mock_dialogue = {
-                        "content": f"""Q: What is the main topic discussed in this content?
-A: The main topic focuses on consciousness and awareness, exploring fundamental questions about subjective experience.
-
-Q: What are the key philosophical questions mentioned?
-A: The key questions include understanding what consciousness is and how we can comprehend awareness and subjective experience.
-
-Q: How long have these questions been studied?
-A: According to the text, these questions have puzzled philosophers and scientists for centuries.""",
-                        "word_count": 65,
-                        "quality_score": 0.87,
-                        "source": "Quick Demo"
-                    }
-                    
-                    st.session_state.generated_dialogues = [mock_dialogue]
-                    st.session_state.quality_scores["demo"] = 0.87
-                    st.success("✅ Quick demo completed!")
-                    
-                    with st.expander("View Results", expanded=True):
-                        st.markdown("**Generated Dialogue:**")
-                        st.markdown(mock_dialogue["content"])
-                        
-                        col1, col2, col3 = st.columns(3)
-                        col1.metric("Words", mock_dialogue["word_count"])
-                        col2.metric("Quality", f"{mock_dialogue['quality_score']:.1%}")
-                        col3.metric("Source", mock_dialogue["source"])
-    
-    def _render_generation_tab(self):
-        """Render generation and validation tab"""
-        st.markdown("### 🤖 Dialogue Generation")
-        
-        if not st.session_state.selected_chunks:
-            st.warning("⚠️ Please select chunks first in the Upload tab")
-            return
-        
-        # Show selected chunks info
-        st.info(f"📊 Ready to process {len(st.session_state.selected_chunks)} selected chunks")
-        
-        # Generation options
-        with st.expander("🔧 Generation Options", expanded=False):
-            col1, col2 = st.columns(2)
-            
-            with col1:
-                questions_per_chunk = st.slider("Questions per chunk", 1, 5, 2)
-                include_context = st.checkbox("Include context", value=True)
-            
-            with col2:
-                dialogue_style = st.selectbox("Style", ["Q&A", "Interview", "Discussion"])
-                add_explanations = st.checkbox("Add explanations", value=True)
-        
-        if st.button("🔄 Generate Dialogues", type="primary"):
-            with st.spinner("🤖 Generating dialogues..."):
-                try:
-                    # Simulate processing time
-                    progress_bar = st.progress(0)
-                    
-                    dialogues = []
-                    for i, chunk in enumerate(st.session_state.selected_chunks):
-                        # Update progress
-                        progress_bar.progress((i + 1) / len(st.session_state.selected_chunks))
-                        
-                        # Generate dialogue for chunk
-                        chunk_text = chunk.get("text", str(chunk))
-                        dialogue = self._generate_dialogue_safe(chunk_text, i + 1, questions_per_chunk)
-                        dialogues.append(dialogue)
-                        
-                        # Small delay for realism
-                        time.sleep(0.5)
-                    
-                    st.session_state.generated_dialogues = dialogues
-                    
-                    # Update quality scores
-                    for i, dialogue in enumerate(dialogues):
-                        st.session_state.quality_scores[f"chunk_{i+1}"] = dialogue.get("quality_score", 0.8)
-                    
-                    st.success(f"✅ Generated {len(dialogues)} dialogues!")
-                    
-                except Exception as e:
-                    st.error(f"❌ Error generating dialogues: {str(e)}")
-                    st.info("The system will continue in demo mode.")
-        
-        # Show results
-        if st.session_state.generated_dialogues:
-            st.markdown("#### ✅ Generated Dialogues")
-            
-            for i, dialogue in enumerate(st.session_state.generated_dialogues):
-                quality_score = dialogue.get("quality_score", 0.8)
-                quality_color = "🟢" if quality_score > 0.8 else "🟡" if quality_score > 0.6 else "🔴"
+            # System capabilities
+            with st.expander("🔧 System Capabilities", expanded=False):
+                caps = st.session_state.system_capabilities
                 
-                with st.expander(f"{quality_color} Dialogue {i+1} - Quality: {quality_score:.1%}", expanded=False):
-                    st.markdown("**Content:**")
-                    st.markdown(dialogue.get("content", ""))
-                    
-                    col1, col2, col3 = st.columns(3)
-                    col1.metric("Words", dialogue.get("word_count", 0))
-                    col2.metric("Quality", f"{quality_score:.1%}")
-                    col3.metric("Chunk", dialogue.get("chunk_id", "N/A"))
-                    
-                    # Edit option
-                    if st.button(f"✏️ Edit Dialogue {i+1}", key=f"edit_{i}"):
-                        st.info("Edit functionality would open here in full version")
+                col_a, col_b = st.columns(2)
+                
+                with col_a:
+                    st.markdown("**Document Formats:**")
+                    for fmt in caps["Document Reader"]:
+                        st.write(f"✅ {fmt.upper()}")
+                
+                with col_b:
+                    st.markdown("**Processing Features:**")
+                    nlp_caps = caps["NLP Processor"]
+                    for feature, available in nlp_caps.items():
+                        icon = "✅" if available else "⚠️"
+                        st.write(f"{icon} {feature.replace('_', ' ').title()}")
+                
+                ai_status = "✅ Available" if caps["AI Generator"] else "⚠️ Demo Mode"
+                st.markdown(f"**AI Processing:** {ai_status}")
     
-    def _render_dashboard_tab(self):
-        """Render dashboard and export tab"""
-        st.markdown("### 📊 Dashboard & Export")
+    def _load_document(self, uploaded_file):
+        """Load uploaded document"""
+        try:
+            with st.spinner("📖 Loading document..."):
+                # Read file content
+                file_content = uploaded_file.read()
+                file_type = uploaded_file.name.split('.')[-1].lower()
+                
+                # Load with document reader
+                result = self.document_reader.load_document(
+                    file_content, 
+                    file_type, 
+                    uploaded_file.name
+                )
+                
+                if result['success']:
+                    # Update session state
+                    st.session_state.current_document = result
+                    st.session_state.total_pages = result['total_pages']
+                    st.session_state.current_page = 1
+                    st.session_state.document_loaded = True
+                    st.session_state.table_of_contents = result.get('toc', [])
+                    st.session_state.files_processed += 1
+                    
+                    st.success(f"✅ Document loaded: {uploaded_file.name}")
+                    st.rerun()
+                else:
+                    st.error(f"❌ Failed to load document: {result.get('error', 'Unknown error')}")
+                    
+        except Exception as e:
+            logger.error(f"Document loading error: {e}")
+            st.error(f"❌ Error loading document: {str(e)}")
+    
+    def _render_three_panel_interface(self):
+        """Render the main three-panel interface"""
         
-        # Performance metrics
-        col1, col2, col3, col4 = st.columns(4)
+        # Create three columns for the panels
+        nav_col, reader_col, processor_col = st.columns([3, 8, 4])
+        
+        with nav_col:
+            self._render_navigation_panel()
+        
+        with reader_col:
+            self._render_document_viewer()
+        
+        with processor_col:
+            self._render_processor_panel()
+    
+    def _render_navigation_panel(self):
+        """Render left navigation panel"""
+        st.markdown("### 📚 Navigation")
+        
+        # Document info
+        if st.session_state.current_document:
+            doc_info = st.session_state.current_document
+            metadata = doc_info.get('metadata')
+            
+            with st.container():
+                st.markdown("#### 📄 Document Info")
+                st.write(f"**Title:** {metadata.title if metadata else doc_info.get('filename', 'Unknown')}")
+                st.write(f"**Format:** {doc_info.get('format', '').upper()}")
+                st.write(f"**Pages:** {doc_info.get('total_pages', 0)}")
+                
+                # Progress indicator
+                progress = st.session_state.current_page / st.session_state.total_pages
+                st.progress(progress)
+                st.caption(f"Page {st.session_state.current_page} of {st.session_state.total_pages} ({progress:.1%})")
+        
+        st.markdown("---")
+        
+        # Table of Contents
+        with st.expander("📋 Table of Contents", expanded=True):
+            if st.session_state.table_of_contents:
+                for item in st.session_state.table_of_contents:
+                    indent = "  " * (item.get('level', 1) - 1)
+                    if st.button(f"{indent}📄 {item['title']}", key=f"toc_{item['page']}"):
+                        st.session_state.current_page = item['page']
+                        st.rerun()
+            else:
+                st.info("No table of contents available")
+        
+        # Bookmarks
+        with st.expander("🔖 Bookmarks", expanded=False):
+            if st.session_state.bookmarks:
+                for i, bookmark in enumerate(st.session_state.bookmarks):
+                    col1, col2 = st.columns([4, 1])
+                    with col1:
+                        if st.button(f"📌 {bookmark['title']}", key=f"bookmark_{i}"):
+                            st.session_state.current_page = bookmark['page']
+                            st.rerun()
+                    with col2:
+                        if st.button("🗑️", key=f"del_bookmark_{i}"):
+                            st.session_state.bookmarks.pop(i)
+                            st.rerun()
+            else:
+                st.info("No bookmarks yet")
+            
+            # Add bookmark
+            bookmark_title = st.text_input("Bookmark title", key="new_bookmark_title")
+            if st.button("➕ Add Bookmark", disabled=not bookmark_title):
+                new_bookmark = {
+                    'title': bookmark_title,
+                    'page': st.session_state.current_page,
+                    'timestamp': datetime.now().isoformat()
+                }
+                st.session_state.bookmarks.append(new_bookmark)
+                st.session_state.new_bookmark_title = ""
+                st.rerun()
+        
+        # Search
+        with st.expander("🔍 Search", expanded=False):
+            search_term = st.text_input("Search in document", key="doc_search")
+            if search_term and st.button("🔍 Search"):
+                self._search_document(search_term)
+            
+            # Search results
+            if st.session_state.search_results:
+                st.markdown(f"**Found {len(st.session_state.search_results)} results:**")
+                for i, result in enumerate(st.session_state.search_results[:10]):
+                    if st.button(
+                        f"Page {result['page']}: {result.get('context', result['text'])[:50]}...", 
+                        key=f"search_result_{i}"
+                    ):
+                        st.session_state.current_page = result['page']
+                        st.session_state.highlight_areas = [result.get('bbox', [])]
+                        st.rerun()
+        
+        # Processing History
+        with st.expander("📊 Processing History", expanded=False):
+            if st.session_state.processing_history:
+                for page_key, data in st.session_state.processing_history.items():
+                    page_num = data['page_number']
+                    result_count = len(data.get('results', []))
+                    
+                    if st.button(f"Page {page_num} ({result_count} results)", key=f"history_{page_key}"):
+                        st.session_state.current_page = page_num
+                        st.rerun()
+            else:
+                st.info("No processing history yet")
+    
+    def _render_document_viewer(self):
+        """Render main document viewer panel"""
+        st.markdown("### 📖 Document Viewer")
+        
+        if not st.session_state.document_loaded:
+            st.info("Please upload a document to start reading")
+            return
+        
+        # Page controls
+        col1, col2, col3, col4, col5 = st.columns([1, 1, 2, 1, 1])
         
         with col1:
-            st.metric("📁 Files", len(st.session_state.file_history))
+            if st.button("◀️ Previous", disabled=st.session_state.current_page <= 1):
+                st.session_state.current_page -= 1
+                if st.session_state.auto_process_enabled:
+                    self._auto_process_page()
+                st.rerun()
         
         with col2:
-            st.metric("💬 Dialogues", len(st.session_state.generated_dialogues))
+            if st.button("Next ▶️", disabled=st.session_state.current_page >= st.session_state.total_pages):
+                st.session_state.current_page += 1
+                if st.session_state.auto_process_enabled:
+                    self._auto_process_page()
+                st.rerun()
         
         with col3:
-            session_time = time.time() - st.session_state.session_start_time
-            st.metric("⏱️ Session", f"{session_time/60:.1f}m")
+            page_input = st.number_input(
+                "Go to page",
+                min_value=1,
+                max_value=st.session_state.total_pages,
+                value=st.session_state.current_page,
+                key="page_navigation"
+            )
+            if page_input != st.session_state.current_page:
+                st.session_state.current_page = page_input
+                if st.session_state.auto_process_enabled:
+                    self._auto_process_page()
+                st.rerun()
         
         with col4:
-            if st.session_state.quality_scores:
-                avg_quality = sum(st.session_state.quality_scores.values()) / len(st.session_state.quality_scores)
-                st.metric("⭐ Avg Quality", f"{avg_quality:.1%}")
-            else:
-                st.metric("⭐ Avg Quality", "N/A")
+            zoom_options = ["50%", "75%", "100%", "125%", "150%", "200%"]
+            zoom_index = zoom_options.index("100%")
+            zoom = st.selectbox("Zoom", zoom_options, index=zoom_index, key="zoom_select")
+            zoom_value = float(zoom.replace("%", "")) / 100
+            st.session_state.zoom_level = zoom_value
         
-        # Export section
-        if st.session_state.generated_dialogues:
-            st.markdown("#### 📦 Export Options")
+        with col5:
+            if st.button("🔖 Bookmark"):
+                bookmark_title = f"Page {st.session_state.current_page}"
+                new_bookmark = {
+                    'title': bookmark_title,
+                    'page': st.session_state.current_page,
+                    'timestamp': datetime.now().isoformat()
+                }
+                st.session_state.bookmarks.append(new_bookmark)
+                st.success("Bookmark added!")
+        
+        st.markdown("---")
+        
+        # Document page display
+        try:
+            page_data = self.document_reader.render_page(
+                st.session_state.current_page, 
+                st.session_state.zoom_level
+            )
             
+            if page_data:
+                # Display page image if available
+                if page_data.image_data:
+                    st.image(
+                        page_data.image_data, 
+                        caption=f"Page {st.session_state.current_page}",
+                        use_container_width=True
+                    )
+                
+                # Display text content
+                if page_data.text_content:
+                    with st.expander("📝 Page Text", expanded=False):
+                        st.text_area(
+                            "Page content",
+                            value=page_data.text_content,
+                            height=300,
+                            disabled=True,
+                            key="page_text_display"
+                        )
+                    
+                    # Text selection simulation
+                    st.markdown("**💡 Text Selection:**")
+                    selected_text = st.text_area(
+                        "Select text to process (copy and paste from above)",
+                        height=100,
+                        key="selected_text_input",
+                        placeholder="Copy text from the page above to process it..."
+                    )
+                    
+                    if selected_text != st.session_state.selected_text:
+                        st.session_state.selected_text = selected_text
+                    
+                    if selected_text:
+                        col1, col2 = st.columns(2)
+                        with col1:
+                            if st.button("🧠 Process Selection", type="primary"):
+                                self._process_selected_text(selected_text)
+                        with col2:
+                            if st.button("📋 Clear Selection"):
+                                st.session_state.selected_text = ""
+                                st.rerun()
+            else:
+                st.error("Failed to render page")
+                
+        except Exception as e:
+            logger.error(f"Page rendering error: {e}")
+            st.error(f"Error rendering page: {str(e)}")
+            
+            # Fallback to text-only mode
+            try:
+                page_text = self.document_reader.extract_page_text(st.session_state.current_page)
+                if page_text:
+                    st.markdown("### 📄 Text Mode (Fallback)")
+                    st.text_area("Page content", page_text, height=500, disabled=True)
+            except Exception as e2:
+                st.error(f"Failed to extract text: {str(e2)}")
+    
+    def _render_processor_panel(self):
+        """Render right processor panel"""
+        st.markdown("### 🧠 AI Processor")
+        
+        # Processing mode selection
+        mode = st.selectbox(
+            "Processing Mode",
+            ["Keyword Analysis", "Context Extraction", "Q&A Generation", "Summary Creation", "Entity Extraction"],
+            key="processing_mode_select"
+        )
+        st.session_state.current_processing_mode = mode
+        
+        # Mode-specific inputs
+        with st.expander("⚙️ Processing Settings", expanded=True):
+            if mode == "Keyword Analysis":
+                keywords = st.text_input(
+                    "Keywords (comma-separated)",
+                    value=st.session_state.keywords,
+                    placeholder="AI, machine learning, neural networks",
+                    key="keywords_input"
+                )
+                st.session_state.keywords = keywords
+                
+                context_window = st.slider("Context sentences", 1, 10, 3, key="context_window")
+                
+            elif mode == "Context Extraction":
+                context_query = st.text_area(
+                    "Context to find",
+                    value=st.session_state.context_query,
+                    placeholder="Describe what you're looking for...",
+                    height=100,
+                    key="context_query_input"
+                )
+                st.session_state.context_query = context_query
+                
+                similarity_threshold = st.slider("Similarity threshold", 0.1, 1.0, 0.7, key="similarity_threshold")
+                
+            elif mode == "Q&A Generation":
+                question_style = st.selectbox("Question style", ["Academic", "Interview", "Quiz", "Socratic"], key="question_style")
+                questions_count = st.slider("Questions to generate", 1, 8, 3, key="questions_count")
+                
+            elif mode == "Summary Creation":
+                summary_length = st.selectbox("Summary length", ["Brief", "Detailed", "Comprehensive"], key="summary_length")
+                summary_style = st.selectbox("Summary style", ["Paragraph", "Bullet Points", "Outline"], key="summary_style")
+            
+            # AI enhancement options
+            st.markdown("**🤖 AI Enhancement:**")
+            use_openai = st.checkbox("Use OpenAI for enhanced processing", value=False, key="use_openai")
+            
+            if use_openai:
+                ai_model = st.selectbox("Model", ["gpt-3.5-turbo", "gpt-4"], key="ai_model_select")
+                ai_temperature = st.slider("Creativity", 0.0, 1.0, 0.7, key="ai_temperature")
+                st.session_state.ai_model = ai_model
+                st.session_state.ai_temperature = ai_temperature
+        
+        # Processing controls
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            if st.button("🔍 Process Current Page", type="primary"):
+                self._process_current_page()
+        
+        with col2:
+            if st.button("⚡ Auto-Process"):
+                st.session_state.auto_process_enabled = not st.session_state.auto_process_enabled
+                if st.session_state.auto_process_enabled:
+                    st.success("Auto-processing enabled")
+                    self._auto_process_page()
+                else:
+                    st.info("Auto-processing disabled")
+        
+        # Batch processing
+        with st.expander("📦 Batch Processing", expanded=False):
             col1, col2 = st.columns(2)
             
             with col1:
-                export_format = st.selectbox("Format", ["JSON", "CSV", "TXT", "JSONL"])
+                start_page = st.number_input("From page", min_value=1, value=st.session_state.current_page, key="batch_start")
             
             with col2:
-                include_metadata = st.checkbox("Include metadata", value=True)
+                end_page = st.number_input("To page", min_value=start_page, value=min(start_page + 5, st.session_state.total_pages), key="batch_end")
             
-            if st.button("📥 Generate Download", type="primary"):
-                try:
-                    export_data = self._prepare_export_data(include_metadata)
+            if st.button("🚀 Process Page Range", type="primary"):
+                self._process_page_range(start_page, end_page)
+        
+        st.markdown("---")
+        
+        # Processing results
+        self._render_processing_results()
+        
+        st.markdown("---")
+        
+        # Export options
+        self._render_export_options()
+    
+    def _process_current_page(self):
+        """Process the current page"""
+        try:
+            page_text = self.document_reader.extract_page_text(st.session_state.current_page)
+            
+            if not page_text:
+                st.warning("No text found on current page")
+                return
+            
+            with st.spinner(f"Processing page {st.session_state.current_page}..."):
+                results = self._process_text_with_mode(
+                    page_text, 
+                    st.session_state.current_processing_mode,
+                    st.session_state.current_page
+                )
+                
+                if results:
+                    # Add to processing results
+                    st.session_state.processing_results.extend(results)
                     
-                    if export_format == "JSON":
-                        content = json.dumps(export_data, indent=2)
-                        filename = "dialogues.json"
-                        mime_type = "application/json"
+                    # Add to processing history
+                    page_key = f"page_{st.session_state.current_page}"
+                    st.session_state.processing_history[page_key] = {
+                        'page_number': st.session_state.current_page,
+                        'mode': st.session_state.current_processing_mode,
+                        'results': results,
+                        'timestamp': datetime.now().isoformat()
+                    }
                     
-                    elif export_format == "JSONL":
-                        content = "\n".join([json.dumps(item) for item in export_data])
-                        filename = "dialogues.jsonl"
-                        mime_type = "application/json"
+                    st.session_state.total_processing_operations += 1
+                    st.success(f"Generated {len(results)} results!")
+                    st.rerun()
+                else:
+                    st.warning("No results generated")
                     
-                    elif export_format == "CSV":
-                        if st.session_state.available_features.get("pandas", False):
-                            import pandas as pd
-                            df = pd.DataFrame(export_data)
-                            content = df.to_csv(index=False)
-                            filename = "dialogues.csv"
-                            mime_type = "text/csv"
-                        else:
-                            st.error("❌ Pandas not available for CSV export")
-                            return
+        except Exception as e:
+            logger.error(f"Processing error: {e}")
+            st.error(f"Processing failed: {str(e)}")
+    
+    def _process_selected_text(self, selected_text: str):
+        """Process selected text"""
+        if not selected_text.strip():
+            st.warning("No text selected")
+            return
+        
+        try:
+            with st.spinner("Processing selected text..."):
+                results = self._process_text_with_mode(
+                    selected_text,
+                    st.session_state.current_processing_mode,
+                    st.session_state.current_page
+                )
+                
+                if results:
+                    st.session_state.processing_results.extend(results)
+                    st.success(f"Generated {len(results)} results from selection!")
+                    st.rerun()
+                else:
+                    st.warning("No results generated from selection")
                     
-                    else:  # TXT
-                        content = "\n\n" + "="*50 + "\n\n"
-                        content = content.join([item.get("content", "") for item in export_data])
-                        filename = "dialogues.txt"
-                        mime_type = "text/plain"
+        except Exception as e:
+            logger.error(f"Selection processing error: {e}")
+            st.error(f"Failed to process selection: {str(e)}")
+    
+    def _process_text_with_mode(self, text: str, mode: str, page_number: int) -> List[ProcessingResult]:
+        """Process text with specified mode"""
+        results = []
+        
+        try:
+            if mode == "Keyword Analysis":
+                if st.session_state.keywords:
+                    keywords = [k.strip() for k in st.session_state.keywords.split(',')]
+                    results = self.nlp_processor.process_with_keywords(
+                        text, keywords, 3, page_number
+                    )
+            
+            elif mode == "Context Extraction":
+                if st.session_state.context_query:
+                    results = self.nlp_processor.extract_context_based_content(
+                        text, st.session_state.context_query, 0.7, page_number
+                    )
+            
+            elif mode == "Q&A Generation":
+                results = self.nlp_processor.generate_questions_from_content(
+                    text, "Academic", 3, page_number
+                )
+            
+            elif mode == "Summary Creation":
+                results = self.nlp_processor.create_summary(
+                    text, "Brief", "Paragraph", page_number
+                )
+            
+            elif mode == "Entity Extraction":
+                results = self.nlp_processor.extract_named_entities(
+                    text, page_number
+                )
+            
+            # Enhance with OpenAI if enabled
+            if st.session_state.get('use_openai', False) and results:
+                enhanced_results = self._enhance_with_openai(results, text)
+                if enhanced_results:
+                    results = enhanced_results
+            
+        except Exception as e:
+            logger.error(f"Text processing error: {e}")
+        
+        return results
+    
+    def _enhance_with_openai(self, results: List[ProcessingResult], source_text: str) -> List[ProcessingResult]:
+        """Enhance results with OpenAI"""
+        try:
+            enhanced_results = []
+            
+            for result in results:
+                if result.type == "question":
+                    # Extract question and answer
+                    content_lines = result.content.split('\n')
+                    question_line = next((line for line in content_lines if line.startswith('Q:')), '')
                     
-                    st.download_button(
-                        label=f"📥 Download {export_format}",
-                        data=content,
-                        file_name=filename,
-                        mime=mime_type,
-                        type="primary"
+                    if question_line:
+                        question = question_line.replace('Q:', '').strip()
+                        
+                        # Generate enhanced answer with OpenAI
+                        enhanced = self.ai_generator.generate_dialogue_real(
+                            source_text,
+                            "Q&A",
+                            1,
+                            st.session_state.ai_model,
+                            st.session_state.ai_temperature
+                        )
+                        
+                        if enhanced and not enhanced.get('is_demo', False):
+                            # Update result with enhanced content
+                            result.content = enhanced['content']
+                            result.confidence = enhanced['quality_score']
+                            result.metadata['enhanced_with_ai'] = True
+                            result.metadata['model_used'] = enhanced['model_used']
+                
+                enhanced_results.append(result)
+            
+            return enhanced_results
+            
+        except Exception as e:
+            logger.error(f"OpenAI enhancement error: {e}")
+            return results
+    
+    def _auto_process_page(self):
+        """Auto-process current page"""
+        if st.session_state.auto_process_enabled:
+            self._process_current_page()
+    
+    def _process_page_range(self, start_page: int, end_page: int):
+        """Process a range of pages"""
+        try:
+            progress_bar = st.progress(0)
+            status_text = st.empty()
+            
+            total_pages = end_page - start_page + 1
+            all_results = []
+            
+            for i, page_num in enumerate(range(start_page, end_page + 1)):
+                progress = (i + 1) / total_pages
+                progress_bar.progress(progress)
+                status_text.text(f"Processing page {page_num}...")
+                
+                # Extract and process page
+                page_text = self.document_reader.extract_page_text(page_num)
+                if page_text:
+                    results = self._process_text_with_mode(
+                        page_text,
+                        st.session_state.current_processing_mode,
+                        page_num
                     )
                     
-                    st.success(f"✅ {export_format} file ready for download!")
+                    if results:
+                        all_results.extend(results)
+                        
+                        # Store in history
+                        page_key = f"page_{page_num}"
+                        st.session_state.processing_history[page_key] = {
+                            'page_number': page_num,
+                            'mode': st.session_state.current_processing_mode,
+                            'results': results,
+                            'timestamp': datetime.now().isoformat()
+                        }
+                
+                time.sleep(0.1)  # Small delay
+            
+            # Update session state
+            st.session_state.processing_results.extend(all_results)
+            st.session_state.total_processing_operations += total_pages
+            
+            progress_bar.progress(1.0)
+            status_text.text("✅ Batch processing complete!")
+            
+            st.success(f"Processed {total_pages} pages, generated {len(all_results)} results!")
+            time.sleep(1)
+            st.rerun()
+            
+        except Exception as e:
+            logger.error(f"Batch processing error: {e}")
+            st.error(f"Batch processing failed: {str(e)}")
+    
+    def _render_processing_results(self):
+        """Render processing results"""
+        st.markdown("### 💬 Processing Results")
+        
+        if not st.session_state.processing_results:
+            st.info("No processing results yet. Process some content to see results here.")
+            return
+        
+        # Results controls
+        col1, col2 = st.columns(2)
+        with col1:
+            if st.button("🗑️ Clear All Results"):
+                st.session_state.processing_results = []
+                st.rerun()
+        
+        with col2:
+            result_count = len(st.session_state.processing_results)
+            st.write(f"**{result_count} results**")
+        
+        # Display results
+        for i, result in enumerate(st.session_state.processing_results[-10:]):  # Show last 10
+            with st.container():
+                # Result header
+                col1, col2 = st.columns([4, 1])
+                
+                with col1:
+                    result_type = result.type.title()
+                    confidence = result.confidence
+                    confidence_color = "🟢" if confidence > 0.8 else "🟡" if confidence > 0.6 else "🔴"
                     
-                except Exception as e:
-                    st.error(f"❌ Export error: {str(e)}")
-                    st.info("Try a different format or check your data.")
-        
-        else:
-            st.info("📝 Generate some dialogues first to enable export options")
-        
-        # System information
-        with st.expander("🔧 System Information", expanded=False):
-            st.markdown("**Session Details:**")
-            st.write(f"Start Time: {datetime.fromtimestamp(st.session_state.session_start_time).strftime('%Y-%m-%d %H:%M:%S')}")
-            st.write(f"Files Processed: {len(st.session_state.file_history)}")
-            st.write(f"Chunks Created: {len(st.session_state.chunks)}")
-            st.write(f"Dialogues Generated: {len(st.session_state.generated_dialogues)}")
-            
-            st.markdown("**Available Features:**")
-            for feature, available in st.session_state.available_features.items():
-                status = "✅" if available else "❌"
-                st.write(f"{status} {feature.replace('_', ' ').title()}")
+                    st.markdown(f"**{confidence_color} {result_type} - Page {result.source_page}**")
+                    st.caption(f"Confidence: {confidence:.1%} | {result.timestamp[:16]}")
+                
+                with col2:
+                    if st.button("🗑️", key=f"delete_result_{i}"):
+                        st.session_state.processing_results.remove(result)
+                        st.rerun()
+                
+                # Result content
+                st.markdown(result.content)
+                
+                # Result metadata
+                if st.checkbox(f"Show details", key=f"details_{i}"):
+                    with st.expander("📊 Details", expanded=True):
+                        st.json(result.metadata)
+                
+                st.markdown("---")
     
-    def _render_fallback_interface(self):
-        """Render minimal fallback interface"""
-        st.markdown("## 🛡️ Safe Mode Interface")
-        st.info("Running in safe mode with basic functionality")
+    def _render_export_options(self):
+        """Render export options"""
+        st.markdown("### 📤 Export")
         
-        # Simple text input
-        user_text = st.text_area("Enter your text:", height=200)
+        if not st.session_state.processing_results:
+            st.info("Process some content first to enable export")
+            return
         
-        if st.button("Process Text") and user_text:
-            # Simple processing
-            sentences = user_text.split(".")
-            mock_dialogue = f"""Q: What is the main content about?
-A: The content discusses: {sentences[0] if sentences else user_text[:100]}...
-
-Q: What are the key points?
-A: The key points include the main themes and concepts presented in the text."""
+        # Export format
+        export_format = st.selectbox(
+            "Format",
+            ["JSON", "JSONL", "CSV", "Markdown", "HTML"],
+            key="export_format"
+        )
+        
+        # Export options
+        include_metadata = st.checkbox("Include metadata", value=True, key="include_metadata")
+        
+        if st.button("📥 Generate Export", type="primary"):
+            self._generate_export(export_format, include_metadata)
+    
+    def _generate_export(self, format_type: str, include_metadata: bool):
+        """Generate export file"""
+        try:
+            # Prepare export data
+            export_data = []
             
-            st.markdown("**Generated Dialogue:**")
-            st.markdown(mock_dialogue)
+            for result in st.session_state.processing_results:
+                item = {
+                    'id': result.id,
+                    'type': result.type,
+                    'content': result.content,
+                    'source_page': result.source_page,
+                    'confidence': result.confidence,
+                    'timestamp': result.timestamp
+                }
+                
+                if include_metadata:
+                    item['metadata'] = result.metadata
+                    item['source_text'] = result.source_text
+                
+                export_data.append(item)
             
-            # Simple download
+            # Generate content based on format
+            if format_type == "JSON":
+                content = json.dumps(export_data, indent=2)
+                mime_type = "application/json"
+                file_ext = "json"
+                
+            elif format_type == "JSONL":
+                content = '\n'.join([json.dumps(item) for item in export_data])
+                mime_type = "application/json"
+                file_ext = "jsonl"
+                
+            elif format_type == "CSV":
+                import pandas as pd
+                df = pd.DataFrame(export_data)
+                content = df.to_csv(index=False)
+                mime_type = "text/csv"
+                file_ext = "csv"
+                
+            elif format_type == "Markdown":
+                content = "# Processing Results\n\n"
+                for item in export_data:
+                    content += f"## {item['type'].title()} - Page {item['source_page']}\n\n"
+                    content += f"{item['content']}\n\n"
+                    content += f"*Confidence: {item['confidence']:.1%} | {item['timestamp']}*\n\n"
+                    content += "---\n\n"
+                mime_type = "text/markdown"
+                file_ext = "md"
+                
+            else:  # HTML
+                content = "<html><head><title>Processing Results</title></head><body>"
+                content += "<h1>Processing Results</h1>"
+                for item in export_data:
+                    content += f"<h2>{item['type'].title()} - Page {item['source_page']}</h2>"
+                    content += f"<p>{item['content']}</p>"
+                    content += f"<small>Confidence: {item['confidence']:.1%} | {item['timestamp']}</small><hr>"
+                content += "</body></html>"
+                mime_type = "text/html"
+                file_ext = "html"
+            
+            # Generate filename
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            filename = f"processing_results_{timestamp}.{file_ext}"
+            
+            # Download button
             st.download_button(
-                "Download Result",
-                mock_dialogue,
-                "dialogue.txt",
-                "text/plain"
+                label=f"📥 Download {format_type}",
+                data=content,
+                file_name=filename,
+                mime=mime_type,
+                type="primary"
             )
+            
+            st.success("✅ Export ready for download!")
+            
+        except Exception as e:
+            logger.error(f"Export error: {e}")
+            st.error(f"Export failed: {str(e)}")
     
-    def _extract_text_safe(self, uploaded_file):
-        """Safely extract text from uploaded file"""
+    def _search_document(self, search_term: str):
+        """Search document for term"""
         try:
-            file_type = uploaded_file.type
-            
-            if file_type == "text/plain":
-                return str(uploaded_file.read(), "utf-8")
-            
-            elif file_type == "application/pdf":
-                if st.session_state.available_features.get("pdf_processing", False):
-                    try:
-                        import PyPDF2
-                        reader = PyPDF2.PdfReader(uploaded_file)
-                        text = ""
-                        for page in reader.pages:
-                            text += page.extract_text() + "\n"
-                        return text.strip()
-                    except Exception as e:
-                        st.warning(f"PDF processing error: {str(e)}")
-                        return None
-                else:
-                    st.warning("PDF processing not available. Please install PyPDF2.")
-                    return None
-            
-            elif file_type == "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
-                if st.session_state.available_features.get("docx", False):
-                    try:
-                        from docx import Document
-                        doc = Document(uploaded_file)
-                        text = ""
-                        for paragraph in doc.paragraphs:
-                            text += paragraph.text + "\n"
-                        return text.strip()
-                    except Exception as e:
-                        st.warning(f"DOCX processing error: {str(e)}")
-                        return None
-                else:
-                    st.warning("DOCX processing not available. Please install python-docx.")
-                    return None
-            
-            else:
-                st.warning(f"Unsupported file type: {file_type}")
-                return None
+            with st.spinner(f"Searching for '{search_term}'..."):
+                results = self.document_reader.search_document(search_term)
+                st.session_state.search_results = results
                 
-        except Exception as e:
-            st.error(f"Text extraction error: {str(e)}")
-            return None
-    
-    def _create_chunks_safe(self, content):
-        """Safely create content chunks"""
-        try:
-            # Simple sentence-based chunking
-            sentences = [s.strip() for s in content.split(".") if s.strip()]
-            chunks = []
-            
-            current_chunk = ""
-            for sentence in sentences:
-                if len(current_chunk) + len(sentence) < 500:  # 500 char chunks
-                    current_chunk += sentence + ". "
+                if results:
+                    st.success(f"Found {len(results)} matches")
                 else:
-                    if current_chunk:
-                        chunks.append({
-                            "text": current_chunk.strip(),
-                            "id": len(chunks) + 1,
-                            "word_count": len(current_chunk.split()),
-                            "char_count": len(current_chunk)
-                        })
-                    current_chunk = sentence + ". "
-            
-            # Add final chunk
-            if current_chunk:
-                chunks.append({
-                    "text": current_chunk.strip(),
-                    "id": len(chunks) + 1,
-                    "word_count": len(current_chunk.split()),
-                    "char_count": len(current_chunk)
-                })
-            
-            return chunks
-            
+                    st.info("No matches found")
+                    
         except Exception as e:
-            st.error(f"Chunking error: {str(e)}")
-            return []
-    
-    def _generate_dialogue_safe(self, chunk_text, chunk_id, questions_per_chunk):
-        """Safely generate dialogue from chunk"""
-        try:
-            # Mock dialogue generation
-            questions = [
-                "What is the main topic discussed in this section?",
-                "What are the key points mentioned?",
-                "How does this relate to the overall content?",
-                "What insights can be drawn from this information?",
-                "What questions might readers have about this topic?"
-            ]
-            
-            selected_questions = questions[:questions_per_chunk]
-            
-            dialogue_content = ""
-            for i, question in enumerate(selected_questions):
-                # Generate mock answer based on chunk
-                answer_start = chunk_text[:100] if len(chunk_text) > 100 else chunk_text
-                answer = f"This section discusses {answer_start}... and provides important insights about the topic."
-                
-                dialogue_content += f"Q: {question}\nA: {answer}\n\n"
-            
-            word_count = len(dialogue_content.split())
-            quality_score = min(0.95, 0.7 + (word_count / 100) * 0.1)  # Mock quality calculation
-            
-            return {
-                "content": dialogue_content.strip(),
-                "word_count": word_count,
-                "quality_score": quality_score,
-                "chunk_id": chunk_id,
-                "questions_count": len(selected_questions)
-            }
-            
-        except Exception as e:
-            st.error(f"Dialogue generation error: {str(e)}")
-            return {
-                "content": f"Error generating dialogue for chunk {chunk_id}",
-                "word_count": 0,
-                "quality_score": 0.0,
-                "chunk_id": chunk_id,
-                "questions_count": 0
-            }
-    
-    def _prepare_export_data(self, include_metadata=True):
-        """Prepare data for export"""
-        export_data = []
-        
-        for i, dialogue in enumerate(st.session_state.generated_dialogues):
-            item = {
-                "id": i + 1,
-                "content": dialogue.get("content", ""),
-                "word_count": dialogue.get("word_count", 0),
-                "quality_score": dialogue.get("quality_score", 0.0)
-            }
-            
-            if include_metadata:
-                item.update({
-                    "chunk_id": dialogue.get("chunk_id", i + 1),
-                    "questions_count": dialogue.get("questions_count", 0),
-                    "generated_at": datetime.now().isoformat(),
-                    "session_id": str(int(st.session_state.session_start_time))
-                })
-            
-            export_data.append(item)
-        
-        return export_data
-    
-    def _reset_session(self):
-        """Reset session state"""
-        keys_to_reset = [
-            "uploaded_content", "chunks", "selected_chunks", 
-            "generated_dialogues", "processing_status", "quality_scores"
-        ]
-        
-        for key in keys_to_reset:
-            if key in st.session_state:
-                del st.session_state[key]
-        
-        st.session_state.processing_status = "ready"
-        st.session_state.current_step = 1
+            logger.error(f"Search error: {e}")
+            st.error(f"Search failed: {str(e)}")
 
 def main():
     """Main application entry point"""
     try:
-        app = UniversalTextToDialogueBulletproof()
+        app = UniversalDocumentReaderApp()
         app.run()
     except Exception as e:
-        st.error(f"🚨 Critical application error: {str(e)}")
+        logger.error(f"Critical application error: {e}")
+        st.error(f"🚨 Critical error: {str(e)}")
         st.markdown("""
-        ### 🛡️ Emergency Fallback
+        ### 🛡️ Application Error
         
-        The application encountered a critical error but is still running in safe mode.
+        The application encountered a critical error. Please:
+        1. Refresh the page to restart
+        2. Check your file format is supported
+        3. Ensure all dependencies are installed
         
-        **What you can do:**
-        1. Refresh the page to restart the application
-        2. Check your internet connection
-        3. Try uploading a different file
-        4. Contact support if the issue persists
-        
-        **Error Details:**
+        **Supported formats:** PDF, DOCX, TXT, MD, EPUB, HTML
         """)
-        st.code(str(e))
 
 if __name__ == "__main__":
     main()

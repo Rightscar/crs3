@@ -57,8 +57,19 @@ class SpacyContentChunker:
     def _initialize_spacy(self):
         """Initialize spaCy model"""
         if not self.spacy_available:
-            logger.warning("spaCy not available, using fallback chunking")
+            logger.warning("spaCy not available - using basic chunking")
             return
+            
+        try:
+            import spacy
+            self.nlp = spacy.load("en_core_web_sm")
+            logger.info("spaCy model loaded successfully")
+        except OSError:
+            logger.warning("spaCy model 'en_core_web_sm' not found - using basic chunking")
+            self.spacy_available = False
+        except Exception as e:
+            logger.error(f"Failed to load spaCy model: {e}")
+            self.spacy_available = False
             
         try:
             # Try to load English model
