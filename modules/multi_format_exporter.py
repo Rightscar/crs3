@@ -22,6 +22,7 @@ from typing import List, Dict, Any, Optional
 from datetime import datetime
 import io
 import zipfile
+from pathlib import Path
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -422,6 +423,218 @@ def render_export_ui(dialogues: List[Dict[str, Any]]) -> None:
                 )
                 
                 st.success("✅ Export package created successfully!")
+
+    def export_to_markdown_report(self, results: List[Dict[str, Any]], 
+                                 document_info: Dict[str, Any] = None) -> str:
+        """Export processing results as a comprehensive markdown report"""
+        
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        
+        report = f"""# Document Processing Report
+Generated on: {timestamp}
+
+"""
+        
+        # Document information
+        if document_info:
+            report += f"""## Document Information
+- **Title:** {document_info.get('title', 'Unknown')}
+- **Format:** {document_info.get('format', 'Unknown').upper()}
+- **Pages:** {document_info.get('total_pages', 'Unknown')}
+- **Processed:** {len(results)} results
+
+---
+
+"""
+        
+        # Group results by type
+        results_by_type = {}
+        for result in results:
+            result_type = result.get('type', 'unknown')
+            if result_type not in results_by_type:
+                results_by_type[result_type] = []
+            results_by_type[result_type].append(result)
+        
+        # Generate sections for each type
+        for result_type, type_results in results_by_type.items():
+            report += f"## {result_type.replace('_', ' ').title()}\n\n"
+            
+            for i, result in enumerate(type_results, 1):
+                page_num = result.get('source_page', 'Unknown')
+                confidence = result.get('confidence', 0) * 100
+                
+                report += f"### Result {i} (Page {page_num})\n"
+                report += f"**Confidence:** {confidence:.1f}%\n\n"
+                report += f"{result.get('content', 'No content')}\n\n"
+                
+                # Add metadata if available
+                metadata = result.get('metadata', {})
+                if metadata:
+                    report += "**Details:**\n"
+                    for key, value in metadata.items():
+                        if isinstance(value, (list, dict)):
+                            continue  # Skip complex objects
+                        report += f"- {key.replace('_', ' ').title()}: {value}\n"
+                    report += "\n"
+                
+                report += "---\n\n"
+        
+        # Summary statistics
+        report += "## Summary Statistics\n\n"
+        report += f"- **Total Results:** {len(results)}\n"
+        report += f"- **Result Types:** {len(results_by_type)}\n"
+        report += f"- **Average Confidence:** {sum(r.get('confidence', 0) for r in results) / len(results) * 100:.1f}%\n"
+        
+        # Pages processed
+        pages = set(r.get('source_page', 0) for r in results)
+        report += f"- **Pages Processed:** {len(pages)}\n"
+        
+        return report
+    
+    def export_to_structured_json(self, results: List[Dict[str, Any]], 
+                                 document_info: Dict[str, Any] = None) -> str:
+        """Export results as structured JSON with analytics"""
+        
+        # Group results by page and type
+        structured_data = {
+            "document_info": document_info or {},
+            "export_metadata": {
+                "timestamp": datetime.now().isoformat(),
+                "total_results": len(results),
+                "export_version": "2.0"
+            },
+            "analytics": {},
+            "results_by_page": {},
+            "results_by_type": {},
+            "raw_results": results
+        }
+        
+        # Organize by page
+        for result in results:
+            page_num = str(result.get('source_page', 'unknown'))
+            if page_num not in structured_data["results_by_page"]:
+                structured_data["results_by_page"][page_num] = []
+            structured_data["results_by_page"][page_num].append(result)
+        
+        # Organize by type
+        for result in results:
+            result_type = result.get('type', 'unknown')
+            if result_type not in structured_data["results_by_type"]:
+                structured_data["results_by_type"][result_type] = []
+            structured_data["results_by_type"][result_type].append(result)
+        
+        # Calculate analytics
+        if results:
+            structured_data["analytics"] = {
+                "average_confidence": sum(r.get('confidence', 0) for r in results) / len(results),
+                "pages_processed": len(set(r.get('source_page', 0) for r in results)),
+                "result_types": list(set(r.get('type', 'unknown') for r in results)),
+                "confidence_distribution": {
+                    "high": len([r for r in results if r.get('confidence', 0) > 0.8]),
+                    "medium": len([r for r in results if 0.5 < r.get('confidence', 0) <= 0.8]),
+                    "low": len([r for r in results if r.get('confidence', 0) <= 0.5])
+                }
+            }
+        
+        return json.dumps(structured_data, indent=2, ensure_ascii=False)
+    
+    def export_to_csv_analysis(self, results: List[Dict[str, Any]]) -> str:
+        """Export results as CSV for data analysis"""
+        
+        output = io.StringIO()
+        
+        # Flatten results for CSV
+        flattened_results = []
+        for result in results:
+            flat_result = {
+                'id': result.get('id', ''),
+                'type': result.get('type', ''),
+                'source_page': result.get('source_page', ''),
+                'confidence': result.get('confidence', 0),
+                'timestamp': result.get('timestamp', ''),
+                'content_length': len(result.get('content', '')),
+                'content_preview': result.get('content', '')[:100] + '...' if len(result.get('content', '')) > 100 else result.get('content', ''),
+                'source_text_length': len(result.get('source_text', '')),
+            }
+            
+            # Add metadata fields
+            metadata = result.get('metadata', {})
+            for key, value in metadata.items():
+                if isinstance(value, (str, int, float, bool)):
+                    flat_result[f'meta_{key}'] = value
+            
+            flattened_results.append(flat_result)
+        
+        if flattened_results:
+            df = pd.DataFrame(flattened_results)
+            df.to_csv(output, index=False)
+        
+        return output.getvalue()
+    
+    def create_comprehensive_export_package(self, results: List[Dict[str, Any]], 
+                                          document_info: Dict[str, Any] = None) -> bytes:
+        """Create a comprehensive export package with multiple formats"""
+        
+        zip_buffer = io.BytesIO()
+        
+        with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+            # JSON export
+            json_content = self.export_to_structured_json(results, document_info)
+            zip_file.writestr(f'analysis_results_{self.timestamp}.json', json_content)
+            
+            # CSV export
+            csv_content = self.export_to_csv_analysis(results)
+            zip_file.writestr(f'analysis_data_{self.timestamp}.csv', csv_content)
+            
+            # Markdown report
+            md_content = self.export_to_markdown_report(results, document_info)
+            zip_file.writestr(f'analysis_report_{self.timestamp}.md', md_content)
+            
+            # Summary statistics
+            summary = {
+                "export_summary": {
+                    "timestamp": datetime.now().isoformat(),
+                    "total_results": len(results),
+                    "result_types": list(set(r.get('type', 'unknown') for r in results)),
+                    "pages_analyzed": len(set(r.get('source_page', 0) for r in results)),
+                    "average_confidence": sum(r.get('confidence', 0) for r in results) / len(results) if results else 0,
+                    "formats_included": ["JSON", "CSV", "Markdown", "Summary"]
+                }
+            }
+            
+            zip_file.writestr(f'export_summary_{self.timestamp}.json', 
+                            json.dumps(summary, indent=2))
+            
+            # README file
+            readme_content = f"""# Document Analysis Export Package
+
+This package contains the complete analysis results from your document processing session.
+
+## Files Included:
+
+1. **analysis_results_{self.timestamp}.json** - Complete structured data with analytics
+2. **analysis_data_{self.timestamp}.csv** - Spreadsheet-friendly data for analysis
+3. **analysis_report_{self.timestamp}.md** - Human-readable report
+4. **export_summary_{self.timestamp}.json** - Export metadata and statistics
+
+## Generated On:
+{datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
+
+## Statistics:
+- Total Results: {len(results)}
+- Result Types: {len(set(r.get('type', 'unknown') for r in results))}
+- Pages Processed: {len(set(r.get('source_page', 0) for r in results))}
+- Average Confidence: {sum(r.get('confidence', 0) for r in results) / len(results) * 100:.1f}%
+
+---
+
+Generated by Universal Document Reader & AI Processor
+"""
+            
+            zip_file.writestr('README.txt', readme_content)
+        
+        zip_buffer.seek(0)
+        return zip_buffer.getvalue()
 
 @st.cache_data
 def prepare_export_data(dialogues: List[Dict[str, Any]]) -> Dict[str, Any]:
