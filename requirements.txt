@@ -2,15 +2,19 @@
 # ================================================================
 
 # ===== CORE FRAMEWORK =====
-streamlit>=1.29.0,<2.0.0\nstreamlit-option-menu>=0.3.6
+streamlit>=1.29.0,<2.0.0
+streamlit-option-menu>=0.3.6
 streamlit-components-base>=1.0.0
 
 # ===== DATA PROCESSING =====
-pandas>=2.1.0,<3.0.0\nnumpy>=1.25.0,<2.0.0\npython-dotenv>=1.0.0
+pandas>=2.1.0,<3.0.0
+numpy>=1.25.0,<2.0.0
+python-dotenv>=1.0.0
 
 # ===== DOCUMENT PROCESSING =====
 # PDF Processing (Enhanced)
-PyMuPDF>=1.23.0,<2.0.0\nPyPDF2>=3.0.1
+PyMuPDF>=1.23.0,<2.0.0
+PyPDF2>=3.0.1
 pdfplumber>=0.9.0
 
 # Word Documents
@@ -33,7 +37,8 @@ sentence-transformers>=2.2.2
 transformers>=4.35.0
 
 # OpenAI Integration
-openai>=1.0.0,<2.0.0\n
+openai>=1.0.0,<2.0.0
+
 # ===== WEB & API =====
 requests>=2.31.0
 aiohttp>=3.9.0
@@ -52,21 +57,21 @@ xlsxwriter>=3.1.9
 # Advanced Export
 markdown>=3.5.1
 jinja2>=3.1.2
-weasyprint>=60.0  # HTML to PDF conversion
+weasyprint>=60.0
 
 # ===== PERFORMANCE & CACHING =====
 diskcache>=5.6.3
-redis>=5.0.1  # Optional for advanced caching
-psutil>=5.9.0  # System monitoring
+redis>=5.0.1
+psutil>=5.9.0
 
 # ===== SECURITY & VALIDATION =====
 validators>=0.22.0
 bleach>=6.1.0
-python-magic>=0.4.27  # File type detection
+python-magic>=0.4.27
 
 # ===== UTILITIES =====
-tqdm>=4.66.0  # Progress bars
-loguru>=0.7.2  # Enhanced logging
+tqdm>=4.66.0
+loguru>=0.7.2
 python-dateutil>=2.8.2
 pytz>=2023.3
 
@@ -78,9 +83,6 @@ opencv-python>=4.8.1.78
 # Machine Learning (Optional)
 scikit-learn>=1.3.0
 
-# Audio Processing (Future feature)
-# librosa>=0.10.1
-
 # ===== DEVELOPMENT & TESTING =====
 pytest>=7.4.0
 pytest-asyncio>=0.21.0
@@ -88,10 +90,6 @@ black>=23.9.0
 flake8>=6.1.0
 mypy>=1.6.0
 
-# ===== DATABASE =====
-# Note: sqlite3 is included in Python standard library
-# SQLite database for persistent storage
-
 # ===== DEPLOYMENT =====
-gunicorn>=21.2.0  # For production deployment
-uvicorn>=0.24.0   # Alternative ASGI server
+gunicorn>=21.2.0
+uvicorn>=0.24.0
