@@ -119,6 +119,18 @@ class IntelligentProcessor:
                 logger.warning(f"Failed to load sentence transformer: {e}")
                 self.sentence_transformers_available = False
     
+    def _split_into_sentences(self, text: str) -> List[str]:
+        """Split text into sentences"""
+        if self.spacy_available and self.nlp:
+            # Use spaCy for smart sentence splitting
+            doc = self.nlp(text)
+            return [sent.text.strip() for sent in doc.sents if sent.text.strip()]
+        else:
+            # Basic sentence splitting
+            import re
+            sentences = re.split(r'[.!?]+', text)
+            return [s.strip() for s in sentences if s.strip()]
+    
     def _initialize_nltk_data(self):
         """Initialize NLTK data"""
         if not self.nltk_available:
@@ -674,7 +686,7 @@ class IntelligentProcessor:
         try:
             if SKLEARN_AVAILABLE and len(text.split()) > 50:
                 # Use TF-IDF for theme extraction
-                sentences = self._smart_sentence_split(text)
+                sentences = self._split_into_sentences(text)
                 
                 # Create TF-IDF matrix
                 vectorizer = TfidfVectorizer(
@@ -706,11 +718,13 @@ class IntelligentProcessor:
                         theme_content += f"{i}. {theme.title()}\n"
                     
                     result = ProcessingResult(
+                        id=f"theme_{page_number}_{len(results)+1}",
                         type="theme_analysis",
                         content=theme_content,
                         source_page=page_number,
                         confidence=0.8,
                         source_text=text[:200] + "...",
+                        timestamp=str(datetime.now()),
                         metadata={
                             'themes': unique_themes,
                             'method': 'tfidf',
@@ -737,11 +751,13 @@ class IntelligentProcessor:
                         theme_content += f"{i}. {theme.title()} (mentioned {count} times)\n"
                     
                     result = ProcessingResult(
+                        id=f"theme_fallback_{page_number}",
                         type="theme_analysis",
                         content=theme_content,
                         source_page=page_number,
                         confidence=0.6,
                         source_text=text[:200] + "...",
+                        timestamp=datetime.now().isoformat(),
                         metadata={
                             'themes': [t[0] for t in top_themes],
                             'method': 'frequency',
@@ -805,7 +821,7 @@ class IntelligentProcessor:
             structure_content += f"• Headings: {len(headings)}\n"
             
             # Readability assessment
-            avg_sentence_length = len(text.split()) / max(len(self._smart_sentence_split(text)), 1)
+            avg_sentence_length = len(text.split()) / max(len(self._split_into_sentences(text)), 1)
             
             if avg_sentence_length < 15:
                 readability = "Easy to read"
@@ -818,11 +834,13 @@ class IntelligentProcessor:
             structure_content += f"• Avg. sentence length: {avg_sentence_length:.1f} words\n"
             
             result = ProcessingResult(
+                id=f"structure_{page_number}",
                 type="structure_analysis",
                 content=structure_content,
                 source_page=page_number,
                 confidence=0.9,
                 source_text=text[:200] + "...",
+                timestamp=datetime.now().isoformat(),
                 metadata={
                     'headings': headings,
                     'paragraph_count': len(paragraphs),
@@ -846,7 +864,7 @@ class IntelligentProcessor:
             # Content metrics
             word_count = len(text.split())
             char_count = len(text)
-            sentences = self._smart_sentence_split(text)
+            sentences = self._split_into_sentences(text)
             sentence_count = len(sentences)
             
             # Language detection (basic)
@@ -903,11 +921,13 @@ class IntelligentProcessor:
             insights_content += f"• Content length: {complexity}\n"
             
             result = ProcessingResult(
+                id=f"insights_{page_number}",
                 type="content_insights",
                 content=insights_content,
                 source_page=page_number,
                 confidence=0.85,
                 source_text=text[:200] + "...",
+                timestamp=datetime.now().isoformat(),
                 metadata={
                     'word_count': word_count,
                     'sentence_count': sentence_count,

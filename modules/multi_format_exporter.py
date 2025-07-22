@@ -506,7 +506,7 @@ Generated on: {timestamp}
         report += f"- **Pages Processed:** {len(pages)}\n"
         
         return report
-    
+
     def export_to_structured_json(self, results: List[Dict[str, Any]], 
                                  document_info: Dict[str, Any] = None) -> str:
         """Export results as structured JSON with analytics"""

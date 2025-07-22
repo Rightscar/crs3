@@ -13,11 +13,23 @@ Features:
 - Interactive visualizations
 """
 
-import streamlit as st
 import time
-import psutil
 import logging
+
+# Optional psutil import for system metrics
+try:
+    import psutil
+    PSUTIL_AVAILABLE = True
+except ImportError:
+    PSUTIL_AVAILABLE = False
 from typing import Dict, List, Any, Optional
+
+# Optional streamlit import for UI components
+try:
+    import streamlit as st
+    STREAMLIT_AVAILABLE = True
+except ImportError:
+    STREAMLIT_AVAILABLE = False
 from datetime import datetime, timedelta
 from dataclasses import dataclass, asdict
 import json
@@ -143,6 +155,19 @@ class AnalyticsDashboard:
     def get_system_metrics(self) -> Dict[str, Any]:
         """Get current system performance metrics"""
         try:
+            if not PSUTIL_AVAILABLE:
+                # Return mock metrics when psutil not available
+                return {
+                    'timestamp': time.time(),
+                    'cpu_percent': 0.0,
+                    'memory_percent': 0.0,
+                    'memory_used_gb': 0.0,
+                    'memory_available_gb': 0.0,
+                    'disk_percent': 0.0,
+                    'disk_used_gb': 0.0,
+                    'disk_free_gb': 0.0
+                }
+                
             cpu_percent = psutil.cpu_percent(interval=0.1)
             memory = psutil.virtual_memory()
             disk = psutil.disk_usage('/')
@@ -165,6 +190,10 @@ class AnalyticsDashboard:
     
     def render_analytics_dashboard(self):
         """Render the complete analytics dashboard"""
+        if not STREAMLIT_AVAILABLE:
+            logging.warning("Streamlit not available - UI components disabled")
+            return
+            
         st.markdown("# 📊 Analytics Dashboard")
         
         # Real-time metrics

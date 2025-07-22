@@ -499,6 +499,12 @@ class UniversalDocumentReader:
         """Check if document is loaded"""
         return self.current_renderer is not None
     
+    def get_page_count(self) -> int:
+        """Get total number of pages in the document"""
+        if not self.current_renderer:
+            return 0
+        return self.current_renderer.get_page_count()
+    
     def get_document_info(self) -> Dict[str, Any]:
         """Get current document information"""
         if not self.current_renderer:

@@ -12,12 +12,18 @@ Features:
 - Error handling and retry logic
 """
 
-import streamlit as st
 import logging
 import json
 import time
 from typing import List, Dict, Any, Optional, Tuple
 from dataclasses import dataclass
+
+# Optional streamlit import for UI components
+try:
+    import streamlit as st
+    STREAMLIT_AVAILABLE = True
+except ImportError:
+    STREAMLIT_AVAILABLE = False
 import os
 
 # OpenAI dependencies
@@ -473,6 +479,10 @@ def render_dialogue_generation_ui(selected_chunks: List[Dict[str, Any]]) -> List
     Returns:
         List of generated DialogueItem objects
     """
+    if not STREAMLIT_AVAILABLE:
+        logging.warning("Streamlit not available - UI components disabled. Use generate_dialogue_from_chunks() for non-UI access.")
+        return []
+        
     if not selected_chunks:
         st.warning("No chunks selected. Please select chunks first.")
         return []
@@ -565,7 +575,6 @@ def render_dialogue_generation_ui(selected_chunks: List[Dict[str, Any]]) -> List
     
     return []
 
-@st.cache_data
 def generate_dialogues_cached(chunks_data: List[Dict[str, Any]], 
                              dialogue_style: str,
                              topics: List[str],
