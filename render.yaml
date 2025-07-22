@@ -5,6 +5,8 @@ services:
     buildCommand: pip install --upgrade pip && pip install -r requirements.txt
     startCommand: streamlit run app.py --server.port=$PORT --server.address=0.0.0.0 --server.headless=true --server.enableCORS=false --server.enableXsrfProtection=false
     envVars:
+      - key: PORT
+        value: $PORT
       - key: STREAMLIT_SERVER_PORT
         value: $PORT
       - key: STREAMLIT_SERVER_ADDRESS
