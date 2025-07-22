@@ -40,6 +40,7 @@ try:
     from modules.enhanced_universal_extractor import EnhancedUniversalExtractor
     from modules.multi_format_exporter import MultiFormatExporter
     from modules.analytics_dashboard import AnalyticsDashboard
+    from modules.session_persistence import SessionPersistence, get_session_persistence, initialize_persistent_session
     MODULES_AVAILABLE = True
 except ImportError as e:
     st.error(f"❌ Module import error: {e}")
@@ -185,8 +186,10 @@ class UniversalDocumentReaderApp:
         self.ai_generator = GPTDialogueGenerator()
         self.exporter = MultiFormatExporter()
         self.analytics = AnalyticsDashboard()
+        self.persistence = get_session_persistence()
         
         self._initialize_session_state()
+        self._initialize_database_session()
         self._check_system_capabilities()
     
     def _initialize_session_state(self):
@@ -236,6 +239,36 @@ class UniversalDocumentReaderApp:
             if key not in st.session_state:
                 st.session_state[key] = value
     
+    def _initialize_database_session(self):
+        """Initialize database session and restore data"""
+        try:
+            session_id = self.persistence.initialize_session()
+            logger.info(f"Database session initialized: {session_id}")
+            
+            # Display database status in sidebar
+            if st.sidebar:
+                with st.sidebar:
+                    st.markdown("---")
+                    st.markdown("## 💾 Database Status")
+                    st.success("✅ SQLite Connected")
+                    
+                    # Show session info
+                    session_info = self.persistence.get_session_info()
+                    st.caption(f"Session: {session_info.get('session_id', 'N/A')[:8]}...")
+                    
+                    # Show document history button
+                    if st.button("📚 Document History"):
+                        st.session_state.show_document_history = True
+                        
+        except Exception as e:
+            logger.error(f"Database initialization failed: {e}")
+            if st.sidebar:
+                with st.sidebar:
+                    st.markdown("---") 
+                    st.markdown("## 💾 Database Status")
+                    st.error("❌ Database Error")
+                    st.caption(str(e))
+    
     def _check_system_capabilities(self):
         """Check and display system capabilities"""
         capabilities = {
@@ -283,6 +316,14 @@ class UniversalDocumentReaderApp:
                 
                 if st.button("🔙 Back to Document Reader"):
                     st.session_state.show_analytics = False
+                    st.rerun()
+                return
+            
+            # Show document history if requested
+            if st.session_state.get('show_document_history', False):
+                self._render_document_history()
+                if st.button("🔙 Back to Reader"):
+                    st.session_state.show_document_history = False
                     st.rerun()
                 return
             
@@ -377,6 +418,17 @@ class UniversalDocumentReaderApp:
                 file_content = uploaded_file.read()
                 file_type = uploaded_file.name.split('.')[-1].lower()
                 
+                # Store in database first
+                document_id = self.persistence.store_document(
+                    file_content=file_content,
+                    filename=uploaded_file.name,
+                    format_type=file_type,
+                    metadata={
+                        'upload_time': datetime.now().isoformat(),
+                        'file_size': len(file_content)
+                    }
+                )
+                
                 # Load with document reader
                 result = self.document_reader.load_document(
                     file_content, 
@@ -385,15 +437,23 @@ class UniversalDocumentReaderApp:
                 )
                 
                 if result['success']:
-                    # Update session state
+                    # Update session state with database integration
                     st.session_state.current_document = result
+                    st.session_state.current_document_id = document_id
                     st.session_state.total_pages = result['total_pages']
                     st.session_state.current_page = 1
                     st.session_state.document_loaded = True
                     st.session_state.table_of_contents = result.get('toc', [])
                     st.session_state.files_processed += 1
                     
-                    st.success(f"✅ Document loaded: {uploaded_file.name}")
+                    # Load persistent bookmarks from database
+                    bookmarks = self.persistence.get_bookmarks(document_id)
+                    st.session_state.bookmarks = bookmarks
+                    
+                    # Save session state to database
+                    self.persistence.save_session_state()
+                    
+                    st.success(f"✅ Document loaded: {uploaded_file.name} (ID: {document_id[:8]})")
                     st.rerun()
                 else:
                     st.error(f"❌ Failed to load document: {result.get('error', 'Unknown error')}")
@@ -401,6 +461,109 @@ class UniversalDocumentReaderApp:
         except Exception as e:
             logger.error(f"Document loading error: {e}")
             st.error(f"❌ Error loading document: {str(e)}")
+    
+    def _render_document_history(self):
+        """Render document history interface"""
+        st.markdown("# 📚 Document History")
+        st.markdown("Access your previously uploaded documents")
+        
+        try:
+            # Get document history
+            documents = self.persistence.get_document_history()
+            
+            if not documents:
+                st.info("No documents found in history. Upload a document to get started!")
+                return
+            
+            # Display documents
+            st.markdown(f"**Found {len(documents)} documents**")
+            
+            for doc in documents:
+                with st.container():
+                    col1, col2, col3, col4 = st.columns([3, 2, 2, 1])
+                    
+                    with col1:
+                        st.markdown(f"**{doc.filename}**")
+                        st.caption(f"Format: {doc.format_type.upper()}")
+                    
+                    with col2:
+                        st.text(f"Size: {doc.file_size:,} bytes")
+                        st.caption(f"Uploaded: {doc.upload_time.strftime('%Y-%m-%d %H:%M')}")
+                    
+                    with col3:
+                        st.text(f"Processed: {doc.processing_count} times")
+                        st.caption(f"Last access: {doc.last_accessed.strftime('%Y-%m-%d %H:%M')}")
+                    
+                    with col4:
+                        if st.button("📖 Load", key=f"load_{doc.document_id}"):
+                            self._load_document_from_history(doc.document_id)
+                            st.rerun()
+                    
+                    st.divider()
+            
+            # Database stats
+            with st.expander("📊 Database Statistics"):
+                stats = self.persistence.get_database_stats()
+                col1, col2 = st.columns(2)
+                
+                with col1:
+                    st.metric("Total Documents", stats.get('documents_count', 0))
+                    st.metric("Total Sessions", stats.get('sessions_count', 0))
+                    st.metric("Processing Results", stats.get('processing_results_count', 0))
+                
+                with col2:
+                    st.metric("Bookmarks", stats.get('bookmarks_count', 0))
+                    st.metric("Search History", stats.get('search_history_count', 0))
+                    st.metric("Database Size", f"{stats.get('database_size_mb', 0):.2f} MB")
+        
+        except Exception as e:
+            st.error(f"Error loading document history: {e}")
+    
+    def _load_document_from_history(self, document_id: str):
+        """Load document from database history"""
+        try:
+            with st.spinner("📖 Loading document from history..."):
+                # Get document content from database
+                content = self.persistence.load_document(document_id)
+                
+                if content:
+                    # Get document metadata
+                    doc_record = self.persistence.db.get_document(document_id)
+                    
+                    # Load with document reader
+                    result = self.document_reader.load_document(
+                        content.encode('utf-8'),
+                        doc_record.format_type,
+                        doc_record.filename
+                    )
+                    
+                    if result['success']:
+                        # Update session state
+                        st.session_state.current_document = result
+                        st.session_state.current_document_id = document_id
+                        st.session_state.total_pages = result['total_pages']
+                        st.session_state.current_page = 1
+                        st.session_state.document_loaded = True
+                        st.session_state.table_of_contents = result.get('toc', [])
+                        
+                        # Restore document state from database
+                        self.persistence.restore_document_state(document_id)
+                        
+                        # Save session state
+                        self.persistence.save_session_state()
+                        
+                        st.success(f"✅ Document loaded from history: {doc_record.filename}")
+                        
+                        # Close history view
+                        st.session_state.show_document_history = False
+                    else:
+                        st.error("Failed to load document content")
+                else:
+                    st.error("Document content not found in database")
+                    
+        except Exception as e:
+            logger.error(f"Error loading document from history: {e}")
+            st.error(f"Error: {e}")
     
     def _render_three_panel_interface(self):
         """Render the main three-panel interface"""
@@ -788,10 +951,31 @@ class UniversalDocumentReaderApp:
                     confidence_avg = sum(r.confidence for r in results) / len(results)
                     success = True
                     
-                    # Add to processing results
+                    # Add to processing results (session state)
                     st.session_state.processing_results.extend(results)
                     
-                    # Add to processing history
+                    # Save each result to database
+                    for result in results:
+                        try:
+                            result_data = {
+                                'id': result.id,
+                                'type': result.type,
+                                'content': result.content,
+                                'source_text': result.source_text,
+                                'metadata': result.metadata,
+                                'timestamp': result.timestamp
+                            }
+                            
+                            self.persistence.save_processing_result(
+                                processing_mode=st.session_state.current_processing_mode,
+                                page_number=st.session_state.current_page,
+                                result_data=result_data,
+                                confidence=result.confidence
+                            )
+                        except Exception as e:
+                            logger.warning(f"Failed to save result to database: {e}")
+                    
+                    # Add to processing history (session state)
                     page_key = f"page_{st.session_state.current_page}"
                     st.session_state.processing_history[page_key] = {
                         'page_number': st.session_state.current_page,
@@ -801,7 +985,11 @@ class UniversalDocumentReaderApp:
                     }
                     
                     st.session_state.total_processing_operations += 1
-                    st.success(f"Generated {len(results)} results!")
+                    
+                    # Save session state to database
+                    self.persistence.save_session_state()
+                    
+                    st.success(f"Generated {len(results)} results (saved to database)!")
                     st.rerun()
                 else:
                     st.warning("No results generated")
@@ -1199,6 +1387,16 @@ class UniversalDocumentReaderApp:
                     results = self._text_search(search_term, case_sensitive, whole_words, max_results)
                 
                 st.session_state.search_results = results
+                
+                # Record search in database
+                try:
+                    self.persistence.record_search(
+                        search_query=search_term,
+                        search_type=search_type,
+                        results_count=len(results)
+                    )
+                except Exception as e:
+                    logger.warning(f"Failed to record search in database: {e}")
                 
                 if results:
                     st.success(f"Found {len(results)} matches using {search_type.lower()} search")

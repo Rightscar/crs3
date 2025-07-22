@@ -88,6 +88,10 @@ black>=23.9.0
 flake8>=6.1.0
 mypy>=1.6.0
 
+# ===== DATABASE =====
+# Note: sqlite3 is included in Python standard library
+# SQLite database for persistent storage
+
 # ===== DEPLOYMENT =====
 gunicorn>=21.2.0  # For production deployment
 uvicorn>=0.24.0   # Alternative ASGI server
