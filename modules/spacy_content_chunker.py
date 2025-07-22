@@ -12,11 +12,17 @@ Features:
 - Context extraction and metadata
 """
 
-import streamlit as st
 import logging
 from typing import List, Dict, Any, Optional, Tuple
 from dataclasses import dataclass
 import re
+
+# Optional streamlit import for UI components
+try:
+    import streamlit as st
+    STREAMLIT_AVAILABLE = True
+except ImportError:
+    STREAMLIT_AVAILABLE = False
 
 # spaCy dependencies
 try:
@@ -243,6 +249,10 @@ def render_chunk_selection_ui(chunks: List[ContentChunk]) -> List[ContentChunk]:
     Returns:
         List of selected chunks
     """
+    if not STREAMLIT_AVAILABLE:
+        logger.warning("Streamlit not available - UI components disabled")
+        return chunks
+        
     if not chunks:
         st.warning("No chunks available for selection")
         return []
@@ -336,7 +346,6 @@ def render_chunk_selection_ui(chunks: List[ContentChunk]) -> List[ContentChunk]:
     
     return selected_chunks
 
-@st.cache_data
 def chunk_text_content(text: str, chunk_size: int = 1000) -> List[Dict[str, Any]]:
     """
     Cached function to chunk text content

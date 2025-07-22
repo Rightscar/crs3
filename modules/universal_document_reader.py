@@ -409,7 +409,7 @@ class UniversalDocumentReader:
                 self.renderers['docx'] = DocxRenderer()
             except ImportError:
                 logger.warning("DocxRenderer module not found - DOCX support disabled")
-                DOCX_AVAILABLE = False
+                # Don't modify global variable, just skip adding the renderer
         
         if EPUB_AVAILABLE:
             try:
@@ -417,7 +417,7 @@ class UniversalDocumentReader:
                 self.renderers['epub'] = EpubRenderer()
             except ImportError:
                 logger.warning("EpubRenderer module not found - EPUB support disabled")
-                EPUB_AVAILABLE = False
+                # Don't modify global variable, just skip adding the renderer
         
         self.current_renderer = None
         self.current_format = None
