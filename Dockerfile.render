@@ -1,0 +1,49 @@
+# Render Deployment Dockerfile
+# ===========================
+
+FROM python:3.11-slim
+
+# Set environment variables for Render
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PORT=10000
+ENV STREAMLIT_SERVER_HEADLESS=true
+ENV STREAMLIT_BROWSER_GATHER_USAGE_STATS=false
+
+# Set working directory
+WORKDIR /app
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    curl \
+    software-properties-common \
+    git \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy requirements first for better Docker layer caching
+COPY requirements_render.txt .
+
+# Install Python dependencies
+RUN pip install --no-cache-dir --upgrade pip
+RUN pip install --no-cache-dir -r requirements_render.txt
+
+# Copy application code
+COPY . .
+
+# Create data directory for uploads
+RUN mkdir -p data
+
+# Expose port for Render
+EXPOSE $PORT
+
+# Health check
+HEALTHCHECK CMD curl --fail http://localhost:$PORT/_stcore/health || exit 1
+
+# Run the application
+CMD streamlit run app_render.py \
+    --server.port=$PORT \
+    --server.address=0.0.0.0 \
+    --server.headless=true \
+    --server.enableCORS=false \
+    --server.enableXsrfProtection=false
