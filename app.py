@@ -671,12 +671,12 @@ class UniversalDocumentReaderApp:
         """Render right processor panel"""
         st.markdown("### 🧠 AI Processor")
         
-            # Processing mode selection
-    mode = st.selectbox(
-        "Processing Mode",
-        ["Keyword Analysis", "Context Extraction", "Q&A Generation", "Summary Creation", "Entity Extraction", "Theme Analysis", "Structure Analysis", "Content Insights"],
-        key="processing_mode_select"
-    )
+        # Processing mode selection
+        mode = st.selectbox(
+            "Processing Mode",
+            ["Keyword Analysis", "Context Extraction", "Q&A Generation", "Summary Creation", "Entity Extraction", "Theme Analysis", "Structure Analysis", "Content Insights"],
+            key="processing_mode_select"
+        )
         st.session_state.current_processing_mode = mode
         
         # Mode-specific inputs
@@ -876,25 +876,25 @@ class UniversalDocumentReaderApp:
                     text, "Brief", "Paragraph", page_number
                 )
             
-        elif mode == "Entity Extraction":
-            results = self.nlp_processor.extract_named_entities(
-                text, page_number
-            )
-        
-        elif mode == "Theme Analysis":
-            results = self.nlp_processor.extract_key_themes(
-                text, page_number
-            )
-        
-        elif mode == "Structure Analysis":
-            results = self.nlp_processor.analyze_document_structure(
-                text, page_number
-            )
-        
-        elif mode == "Content Insights":
-            results = self.nlp_processor.generate_content_insights(
-                text, page_number
-            )
+            elif mode == "Entity Extraction":
+                results = self.nlp_processor.extract_named_entities(
+                    text, page_number
+                )
+            
+            elif mode == "Theme Analysis":
+                results = self.nlp_processor.extract_key_themes(
+                    text, page_number
+                )
+            
+            elif mode == "Structure Analysis":
+                results = self.nlp_processor.analyze_document_structure(
+                    text, page_number
+                )
+            
+            elif mode == "Content Insights":
+                results = self.nlp_processor.generate_content_insights(
+                    text, page_number
+                )
             
             # Enhance with OpenAI if enabled
             if st.session_state.get('use_openai', False) and results:
@@ -1064,12 +1064,12 @@ class UniversalDocumentReaderApp:
         ["JSON", "JSONL", "CSV", "Markdown", "HTML", "Structured JSON", "Analysis Report", "Complete Package"],
         key="export_format"
     )
+    
+    # Export options
+    include_metadata = st.checkbox("Include metadata", value=True, key="include_metadata")
         
-        # Export options
-        include_metadata = st.checkbox("Include metadata", value=True, key="include_metadata")
-        
-        if st.button("📥 Generate Export", type="primary"):
-            self._generate_export(export_format, include_metadata)
+    if st.button("📥 Generate Export", type="primary"):
+        self._generate_export(export_format, include_metadata)
     
     def _generate_export(self, format_type: str, include_metadata: bool):
         """Generate export file"""
@@ -1093,73 +1093,73 @@ class UniversalDocumentReaderApp:
                 
                 export_data.append(item)
             
-                    # Generate content based on format
-        if format_type == "JSON":
-            content = json.dumps(export_data, indent=2)
-            mime_type = "application/json"
-            file_ext = "json"
-            
-        elif format_type == "JSONL":
-            content = '\n'.join([json.dumps(item) for item in export_data])
-            mime_type = "application/json"
-            file_ext = "jsonl"
-            
-        elif format_type == "CSV":
-            content = self.exporter.export_to_csv_analysis(export_data)
-            mime_type = "text/csv"
-            file_ext = "csv"
-            
-        elif format_type == "Structured JSON":
-            document_info = {
-                'title': st.session_state.current_document.get('metadata', {}).title if st.session_state.current_document else 'Document',
-                'format': st.session_state.current_document.get('format', 'unknown'),
-                'total_pages': st.session_state.total_pages
-            }
-            content = self.exporter.export_to_structured_json(export_data, document_info)
-            mime_type = "application/json"
-            file_ext = "json"
-            
-        elif format_type == "Analysis Report":
-            document_info = {
-                'title': st.session_state.current_document.get('metadata', {}).title if st.session_state.current_document else 'Document',
-                'format': st.session_state.current_document.get('format', 'unknown'),
-                'total_pages': st.session_state.total_pages
-            }
-            content = self.exporter.export_to_markdown_report(export_data, document_info)
-            mime_type = "text/markdown"
-            file_ext = "md"
-            
-        elif format_type == "Complete Package":
-            document_info = {
-                'title': st.session_state.current_document.get('metadata', {}).title if st.session_state.current_document else 'Document',
-                'format': st.session_state.current_document.get('format', 'unknown'),
-                'total_pages': st.session_state.total_pages
-            }
-            content = self.exporter.create_comprehensive_export_package(export_data, document_info)
-            mime_type = "application/zip"
-            file_ext = "zip"
-            
-        elif format_type == "Markdown":
-            content = "# Processing Results\n\n"
-            for item in export_data:
-                content += f"## {item['type'].title()} - Page {item['source_page']}\n\n"
-                content += f"{item['content']}\n\n"
-                content += f"*Confidence: {item['confidence']:.1%} | {item['timestamp']}*\n\n"
-                content += "---\n\n"
-            mime_type = "text/markdown"
-            file_ext = "md"
-            
-        else:  # HTML
-            content = "<html><head><title>Processing Results</title></head><body>"
-            content += "<h1>Processing Results</h1>"
-            for item in export_data:
-                content += f"<h2>{item['type'].title()} - Page {item['source_page']}</h2>"
-                content += f"<p>{item['content']}</p>"
-                content += f"<small>Confidence: {item['confidence']:.1%} | {item['timestamp']}</small><hr>"
-            content += "</body></html>"
-            mime_type = "text/html"
-            file_ext = "html"
-            
+            # Generate content based on format
+            if format_type == "JSON":
+                content = json.dumps(export_data, indent=2)
+                mime_type = "application/json"
+                file_ext = "json"
+                
+            elif format_type == "JSONL":
+                content = '\n'.join([json.dumps(item) for item in export_data])
+                mime_type = "application/json"
+                file_ext = "jsonl"
+                
+            elif format_type == "CSV":
+                content = self.exporter.export_to_csv_analysis(export_data)
+                mime_type = "text/csv"
+                file_ext = "csv"
+                
+            elif format_type == "Structured JSON":
+                document_info = {
+                    'title': st.session_state.current_document.get('metadata', {}).title if st.session_state.current_document else 'Document',
+                    'format': st.session_state.current_document.get('format', 'unknown'),
+                    'total_pages': st.session_state.total_pages
+                }
+                content = self.exporter.export_to_structured_json(export_data, document_info)
+                mime_type = "application/json"
+                file_ext = "json"
+                
+            elif format_type == "Analysis Report":
+                document_info = {
+                    'title': st.session_state.current_document.get('metadata', {}).title if st.session_state.current_document else 'Document',
+                    'format': st.session_state.current_document.get('format', 'unknown'),
+                    'total_pages': st.session_state.total_pages
+                }
+                content = self.exporter.export_to_markdown_report(export_data, document_info)
+                mime_type = "text/markdown"
+                file_ext = "md"
+                
+            elif format_type == "Complete Package":
+                document_info = {
+                    'title': st.session_state.current_document.get('metadata', {}).title if st.session_state.current_document else 'Document',
+                    'format': st.session_state.current_document.get('format', 'unknown'),
+                    'total_pages': st.session_state.total_pages
+                }
+                content = self.exporter.create_comprehensive_export_package(export_data, document_info)
+                mime_type = "application/zip"
+                file_ext = "zip"
+                
+            elif format_type == "Markdown":
+                content = "# Processing Results\n\n"
+                for item in export_data:
+                    content += f"## {item['type'].title()} - Page {item['source_page']}\n\n"
+                    content += f"{item['content']}\n\n"
+                    content += f"*Confidence: {item['confidence']:.1%} | {item['timestamp']}*\n\n"
+                    content += "---\n\n"
+                mime_type = "text/markdown"
+                file_ext = "md"
+                
+            else:  # HTML
+                content = "<html><head><title>Processing Results</title></head><body>"
+                content += "<h1>Processing Results</h1>"
+                for item in export_data:
+                    content += f"<h2>{item['type'].title()} - Page {item['source_page']}</h2>"
+                    content += f"<p>{item['content']}</p>"
+                    content += f"<small>Confidence: {item['confidence']:.1%} | {item['timestamp']}</small><hr>"
+                content += "</body></html>"
+                mime_type = "text/html"
+                file_ext = "html"
+                
             # Generate filename
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             filename = f"processing_results_{timestamp}.{file_ext}"
