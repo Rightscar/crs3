@@ -336,7 +336,11 @@ class UniversalDocumentReaderApp:
                         with col1:
                             st.metric("Operations", len(processing_events))
                         with col2:
-                            success_rate = sum(1 for e in processing_events if e['success']) / len(processing_events)
+                            if processing_events and len(processing_events) > 0:
+                                success_count = sum(1 for e in processing_events if e.get('success', False))
+                                success_rate = success_count / len(processing_events)
+                            else:
+                                success_rate = 0.0
                             st.metric("Success", f"{success_rate:.0%}")
                         
                         # Quick system status
@@ -458,9 +462,20 @@ class UniversalDocumentReaderApp:
         """Load uploaded document"""
         try:
             with st.spinner("📖 Loading document..."):
+                # Safe file processing with validation
+                if not uploaded_file or not hasattr(uploaded_file, 'name') or not uploaded_file.name:
+                    st.error("❌ Invalid file upload")
+                    return
+                
                 # Read file content
                 file_content = uploaded_file.read()
-                file_type = uploaded_file.name.split('.')[-1].lower()
+                
+                # Safe file type extraction
+                file_parts = uploaded_file.name.split('.')
+                file_type = file_parts[-1].lower() if len(file_parts) > 1 else 'unknown'
+                
+                if file_type == 'unknown':
+                    st.warning("⚠️ File type could not be determined, trying to process anyway...")
                 
                 # Store in database first
                 document_id = self.persistence.store_document(
@@ -480,7 +495,7 @@ class UniversalDocumentReaderApp:
                     uploaded_file.name
                 )
                 
-                if result['success']:
+                if result and result.get('success', False):
                     # Update session state with database integration
                     st.session_state.current_document = result
                     st.session_state.current_document_id = document_id
@@ -500,7 +515,10 @@ class UniversalDocumentReaderApp:
                     st.success(f"✅ Document loaded: {uploaded_file.name} (ID: {document_id[:8]})")
                     st.rerun()
                 else:
-                    st.error(f"❌ Failed to load document: {result.get('error', 'Unknown error')}")
+                    error_msg = "Unknown error"
+                    if result and isinstance(result, dict):
+                        error_msg = result.get('error', 'Unknown error')
+                    st.error(f"❌ Failed to load document: {error_msg}")
                     
         except Exception as e:
             logger.error(f"Document loading error: {e}")
@@ -581,7 +599,7 @@ class UniversalDocumentReaderApp:
                         doc_record.filename
                     )
                     
-                    if result['success']:
+                    if result and result.get('success', False):
                         # Update session state
                         st.session_state.current_document = result
                         st.session_state.current_document_id = document_id
@@ -1087,8 +1105,9 @@ class UniversalDocumentReaderApp:
         
         try:
             if mode == "Keyword Analysis":
-                if st.session_state.keywords:
-                    keywords = [k.strip() for k in st.session_state.keywords.split(',')]
+                keywords_str = st.session_state.get('keywords', '') or ''
+                if keywords_str:
+                    keywords = [k.strip() for k in keywords_str.split(',') if k.strip()]
                     results = self.nlp_processor.process_with_keywords(
                         text, keywords, 3, page_number
                     )
