@@ -703,59 +703,59 @@ class UniversalDocumentReaderApp:
                 st.session_state.new_bookmark_title = ""
                 st.rerun()
         
-            # Enhanced Search
-    with st.expander("🔍 Advanced Search", expanded=False):
-        # Search input
-        search_term = st.text_input("Search in document", key="doc_search")
-        
-        # Search options
-        col1, col2 = st.columns(2)
-        with col1:
-            case_sensitive = st.checkbox("Case sensitive", key="case_sensitive")
-            whole_words = st.checkbox("Whole words only", key="whole_words")
-        
-        with col2:
-            search_type = st.selectbox("Search type", ["Text", "Regex", "Semantic"], key="search_type")
-            max_results = st.slider("Max results", 5, 50, 20, key="max_results")
-        
-        if search_term and st.button("🔍 Search"):
-            self._advanced_search_document(search_term, search_type, case_sensitive, whole_words, max_results)
-        
-        # Search results with enhanced display
-        search_results = st.session_state.get("search_results", [])
-        if search_results:
-            st.markdown(f"**Found {len(search_results)} results:**")
+        # Enhanced Search
+        with st.expander("🔍 Advanced Search", expanded=False):
+            # Search input
+            search_term = st.text_input("Search in document", key="doc_search")
             
-            # Group by page
-            results_by_page = {}
-            for result in search_results[:max_results]:
-                page = result['page']
-                if page not in results_by_page:
-                    results_by_page[page] = []
-                results_by_page[page].append(result)
+            # Search options
+            col1, col2 = st.columns(2)
+            with col1:
+                case_sensitive = st.checkbox("Case sensitive", key="case_sensitive")
+                whole_words = st.checkbox("Whole words only", key="whole_words")
             
-            for page, page_results in sorted(results_by_page.items()):
-                with st.expander(f"📄 Page {page} ({len(page_results)} results)", expanded=False):
-                    for i, result in enumerate(page_results):
-                        col1, col2 = st.columns([4, 1])
-                        
-                        with col1:
-                            context = result.get('context', result['text'])
-                            highlighted_context = context.replace(
-                                search_term, 
-                                f"**{search_term}**" if not case_sensitive else search_term
-                            )
-                            st.markdown(f"*{highlighted_context[:100]}...*")
+            with col2:
+                search_type = st.selectbox("Search type", ["Text", "Regex", "Semantic"], key="search_type")
+                max_results = st.slider("Max results", 5, 50, 20, key="max_results")
+            
+            if search_term and st.button("🔍 Search"):
+                self._advanced_search_document(search_term, search_type, case_sensitive, whole_words, max_results)
+        
+            # Search results with enhanced display
+            search_results = st.session_state.get("search_results", [])
+            if search_results:
+                st.markdown(f"**Found {len(search_results)} results:**")
+                
+                # Group by page
+                results_by_page = {}
+                for result in search_results[:max_results]:
+                    page = result['page']
+                    if page not in results_by_page:
+                        results_by_page[page] = []
+                    results_by_page[page].append(result)
+            
+                for page, page_results in sorted(results_by_page.items()):
+                    with st.expander(f"📄 Page {page} ({len(page_results)} results)", expanded=False):
+                        for i, result in enumerate(page_results):
+                            col1, col2 = st.columns([4, 1])
                             
-                        with col2:
-                            if st.button("Go", key=f"search_go_{page}_{i}"):
-                                st.session_state.current_page = page
-                                st.session_state.highlight_areas = [result.get('bbox', [])]
-                                st.rerun()
-            
-            # Search statistics
-            pages_with_results = len(results_by_page)
-            st.caption(f"Results found across {pages_with_results} pages")
+                            with col1:
+                                context = result.get('context', result['text'])
+                                highlighted_context = context.replace(
+                                    search_term, 
+                                    f"**{search_term}**" if not case_sensitive else search_term
+                                )
+                                st.markdown(f"*{highlighted_context[:100]}...*")
+                                
+                            with col2:
+                                if st.button("Go", key=f"search_go_{page}_{i}"):
+                                    st.session_state.current_page = page
+                                    st.session_state.highlight_areas = [result.get('bbox', [])]
+                                    st.rerun()
+                
+                # Search statistics
+                pages_with_results = len(results_by_page)
+                st.caption(f"Results found across {pages_with_results} pages")
         
         # Processing History
         with st.expander("📊 Processing History", expanded=False):
@@ -1313,18 +1313,18 @@ class UniversalDocumentReaderApp:
             st.info("Process some content first to enable export")
             return
         
-            # Export format
-    export_format = st.selectbox(
-        "Format",
-        ["JSON", "JSONL", "CSV", "Markdown", "HTML", "Structured JSON", "Analysis Report", "Complete Package"],
-        key="export_format"
-    )
-    
-    # Export options
-    include_metadata = st.checkbox("Include metadata", value=True, key="include_metadata")
+        # Export format
+        export_format = st.selectbox(
+            "Format",
+            ["JSON", "JSONL", "CSV", "Markdown", "HTML", "Structured JSON", "Analysis Report", "Complete Package"],
+            key="export_format"
+        )
         
-    if st.button("📥 Generate Export", type="primary"):
-        self._generate_export(export_format, include_metadata)
+        # Export options
+        include_metadata = st.checkbox("Include metadata", value=True, key="include_metadata")
+            
+        if st.button("📥 Generate Export", type="primary"):
+            self._generate_export(export_format, include_metadata)
     
     def _generate_export(self, format_type: str, include_metadata: bool):
         """Generate export file"""
