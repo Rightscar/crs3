@@ -328,7 +328,9 @@ class VisualDashboard:
             
             system_stats = perf_stats.get('system', {})
             col3.metric("CPU %", f"{system_stats.get('cpu_percent', 0):.1f}%")
-            col4.metric("Load Avg", f"{system_stats.get('load_avg', [0])[0]:.2f}")
+            load_avg_list = system_stats.get('load_avg', [0])
+            load_avg = load_avg_list[0] if load_avg_list and len(load_avg_list) > 0 else 0
+            col4.metric("Load Avg", f"{load_avg:.2f}")
             
             # Cache performance
             if hasattr(performance_optimizer, 'cache'):

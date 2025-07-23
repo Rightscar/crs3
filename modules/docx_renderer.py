@@ -100,7 +100,12 @@ class DocxRenderer:
             end_idx = start_idx + paragraphs_per_page
             
             paragraphs = self.document.paragraphs[start_idx:end_idx]
-            text_content = '\n'.join([p.text for p in paragraphs])
+            # Safe text extraction from paragraphs
+            text_parts = []
+            for p in paragraphs:
+                if p and hasattr(p, 'text'):
+                    text_parts.append(p.text if p.text else "")
+            text_content = '\n'.join(text_parts)
             
             return text_content
             

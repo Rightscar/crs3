@@ -99,8 +99,15 @@ class GPTDialogueGenerator:
                 max_tokens=1000
             )
             
-            # Parse the response
-            generated_content = response.choices[0].message.content
+            # Parse the response safely
+            if not response or not response.choices or len(response.choices) == 0:
+                raise ValueError("OpenAI API returned empty response")
+            
+            choice = response.choices[0]
+            if not choice or not hasattr(choice, 'message') or not hasattr(choice.message, 'content'):
+                raise ValueError("OpenAI API returned malformed response")
+                
+            generated_content = choice.message.content
             
             # Calculate quality score based on content
             quality_score = self._calculate_quality_score(generated_content, chunk_text)
@@ -277,8 +284,15 @@ Requirements:
                 temperature=0.7
             )
             
-            # Parse response
-            content = response.choices[0].message.content
+            # Parse response safely
+            if not response or not response.choices or len(response.choices) == 0:
+                raise ValueError("OpenAI API returned empty response for dialogue generation")
+            
+            choice = response.choices[0]
+            if not choice or not hasattr(choice, 'message') or not hasattr(choice.message, 'content'):
+                raise ValueError("OpenAI API returned malformed response for dialogue generation")
+                
+            content = choice.message.content
             dialogues = self._parse_gpt_response(content, chunk['id'], dialogue_style, topics)
             
             return dialogues
@@ -340,6 +354,39 @@ Generate exactly {max_dialogues} dialogue items:
         
         return prompt
     
+    def _parse_text_fallback(self, content: str, chunk_id: str, topics: List[str] = None) -> List[DialogueItem]:
+        """Fallback text parsing when JSON parsing fails"""
+        try:
+            # Simple Q&A pattern matching
+            lines = content.strip().split('\n')
+            results = []
+            current_question = None
+            
+            for line in lines:
+                line = line.strip()
+                if line.startswith(('Q:', 'Question:', '**Q:', '**Question:')):
+                    current_question = line.split(':', 1)[-1].strip()
+                elif line.startswith(('A:', 'Answer:', '**A:', '**Answer:')) and current_question:
+                    current_answer = line.split(':', 1)[-1].strip()
+                    
+                    dialogue_item = DialogueItem(
+                        id=f"{chunk_id}_fallback_{len(results)}",
+                        chunk_id=chunk_id,
+                        question=current_question,
+                        answer=current_answer,
+                        dialogue_type="qa_pair",
+                        confidence=0.6,  # Lower confidence for fallback
+                        topics=topics if topics else [],
+                        metadata={'generated_by': 'text_fallback'}
+                    )
+                    results.append(dialogue_item)
+                    current_question = None
+            
+            return results
+        except Exception as e:
+            logger.error(f"Text fallback parsing failed: {e}")
+            return []
+
     def _parse_gpt_response(self, content: str, chunk_id: str, 
                            dialogue_style: str, topics: List[str]) -> List[DialogueItem]:
         """Parse GPT response into DialogueItem objects"""
@@ -353,7 +400,12 @@ Generate exactly {max_dialogues} dialogue items:
             
             if json_start != -1 and json_end != -1:
                 json_content = content[json_start:json_end]
-                parsed_data = json.loads(json_content)
+                try:
+                    parsed_data = json.loads(json_content)
+                except (json.JSONDecodeError, TypeError) as e:
+                    logger.warning(f"Failed to parse JSON from OpenAI response: {e}")
+                    # Fallback to basic text parsing
+                    return self._parse_text_fallback(content, chunk_id, topics)
                 
                 for i, item in enumerate(parsed_data):
                     if 'question' in item and 'answer' in item:

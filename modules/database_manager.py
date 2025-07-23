@@ -236,14 +236,18 @@ class DatabaseManager:
             """, (session_id,))
             
             row = cursor.fetchone()
-            if row:
-                return DatabaseSession(
-                    session_id=row[0],
-                    user_id=row[1],
-                    created_at=datetime.fromisoformat(row[2]),
-                    last_active=datetime.fromisoformat(row[3]),
-                    session_data=json.loads(row[4] or '{}')
-                )
+            if row and len(row) >= 5:
+                try:
+                    return DatabaseSession(
+                        session_id=row[0] if row[0] else "",
+                        user_id=row[1] if row[1] else "",
+                        created_at=datetime.fromisoformat(row[2]) if row[2] else datetime.now(),
+                        last_active=datetime.fromisoformat(row[3]) if row[3] else datetime.now(),
+                        session_data=json.loads(row[4] or '{}')
+                    )
+                except (json.JSONDecodeError, ValueError, TypeError) as e:
+                    logger.error(f"Failed to parse session data: {e}")
+                    return None
         return None
     
     def update_session(self, session_id: str, session_data: Dict[str, Any]):

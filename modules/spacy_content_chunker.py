@@ -117,8 +117,16 @@ class SpacyContentChunker:
             chunk_id = 0
             
             for i, sent in enumerate(sentences):
+                # Safe text extraction
+                if not sent or not hasattr(sent, 'text'):
+                    continue
+                    
+                sent_text = sent.text if sent.text else ""
+                if not sent_text.strip():
+                    continue
+                
                 # Check if adding this sentence would exceed chunk size
-                if len(current_chunk) + len(sent.text) > chunk_size and current_chunk:
+                if len(current_chunk) + len(sent_text) > chunk_size and current_chunk:
                     # Create chunk from accumulated sentences
                     chunk = self._create_chunk_with_spacy(
                         chunk_id, current_chunk, current_start, 
@@ -128,15 +136,15 @@ class SpacyContentChunker:
                     
                     # Start new chunk
                     chunk_id += 1
-                    current_chunk = sent.text
-                    current_start = sent.start_char
+                    current_chunk = sent_text
+                    current_start = getattr(sent, 'start_char', 0)
                 else:
                     # Add sentence to current chunk
                     if current_chunk:
-                        current_chunk += " " + sent.text
+                        current_chunk += " " + sent_text
                     else:
-                        current_chunk = sent.text
-                        current_start = sent.start_char
+                        current_chunk = sent_text
+                        current_start = getattr(sent, 'start_char', 0)
             
             # Add final chunk
             if current_chunk:

@@ -109,7 +109,14 @@ class EnhancedUniversalExtractor:
         
         try:
             # Save uploaded file to temporary path
-            with tempfile.NamedTemporaryFile(delete=False, suffix=f".{uploaded_file.name.split('.')[-1]}") as tmp_file:
+            # Safe file extension extraction
+            file_extension = "tmp"
+            if uploaded_file and hasattr(uploaded_file, 'name') and uploaded_file.name:
+                file_parts = uploaded_file.name.split('.')
+                if len(file_parts) > 1:
+                    file_extension = file_parts[-1].lower()
+            
+            with tempfile.NamedTemporaryFile(delete=False, suffix=f".{file_extension}") as tmp_file:
                 tmp_file.write(uploaded_file.read())
                 tmp_file_path = tmp_file.name
             
