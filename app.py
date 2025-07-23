@@ -48,6 +48,28 @@ except ImportError as e:
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
+
+# Early session state initialization to prevent AttributeError
+CRITICAL_SESSION_VARS = {
+    'search_results': [],
+    'processing_results': [],
+    'current_document': None,
+    'document_loaded': False,
+    'current_page': 1,
+    'total_pages': 0,
+    'session_start_time': time.time(),
+    'bookmarks': [],
+    'table_of_contents': [],
+    'processing_history': {},
+    'auto_process_enabled': False,
+    'keywords': '',
+    'context_query': ''
+}
+
+# Initialize critical variables immediately
+for key, default_value in CRITICAL_SESSION_VARS.items():
+    if key not in st.session_state:
+        st.session_state[key] = default_value
 logger = logging.getLogger(__name__)
 
 # Load environment variables
@@ -331,7 +353,7 @@ class UniversalDocumentReaderApp:
             self._render_header()
             
             # Main three-panel interface
-            if st.session_state.document_loaded:
+            if st.session_state.get("document_loaded", False):
                 self._render_three_panel_interface()
             else:
                 self._render_welcome_screen()
@@ -349,14 +371,18 @@ class UniversalDocumentReaderApp:
             st.markdown("# 📖 Universal Document Reader & AI Processor")
         
         with col2:
-            if st.session_state.document_loaded:
-                st.metric("Page", f"{st.session_state.current_page}/{st.session_state.total_pages}")
+            if st.session_state.get("document_loaded", False):
+                current_page = st.session_state.get("current_page", 1)
+                total_pages = st.session_state.get("total_pages", 0)
+                st.metric("Page", f"{current_page}/{total_pages}")
         
         with col3:
-            st.metric("Results", len(st.session_state.processing_results))
+            processing_results = st.session_state.get("processing_results", [])
+            st.metric("Results", len(processing_results))
         
         with col4:
-            session_time = time.time() - st.session_state.session_start_time
+            session_start_time = st.session_state.get("session_start_time", time.time())
+            session_time = time.time() - session_start_time
             st.metric("Session", f"{session_time/60:.1f}m")
         
         with col5:
@@ -660,12 +686,13 @@ class UniversalDocumentReaderApp:
             self._advanced_search_document(search_term, search_type, case_sensitive, whole_words, max_results)
         
         # Search results with enhanced display
-        if st.session_state.search_results:
-            st.markdown(f"**Found {len(st.session_state.search_results)} results:**")
+        search_results = st.session_state.get("search_results", [])
+        if search_results:
+            st.markdown(f"**Found {len(search_results)} results:**")
             
             # Group by page
             results_by_page = {}
-            for result in st.session_state.search_results[:max_results]:
+            for result in search_results[:max_results]:
                 page = result['page']
                 if page not in results_by_page:
                     results_by_page[page] = []
@@ -1552,6 +1579,10 @@ class UniversalDocumentReaderApp:
 def main():
     """Main application entry point"""
     try:
+        # Ensure critical session state variables are initialized
+        if "search_results" not in st.session_state:
+            st.session_state.search_results = []
+        
         app = UniversalDocumentReaderApp()
         app.run()
     except Exception as e:
