@@ -1,0 +1,41 @@
+# Ultra-Minimal Requirements for Render - Python 3.11 Compatible
+# ==============================================================
+
+# Core Framework (Essential)
+streamlit==1.47.0
+streamlit-option-menu==0.4.0
+
+# Data Processing (Essential)
+pandas==2.1.4
+numpy==1.25.2
+python-dotenv==1.0.0
+
+# Document Processing (Core)
+PyMuPDF==1.23.26
+python-docx==1.1.0
+Pillow==10.4.0
+
+# Basic NLP
+nltk==3.8.1
+
+# OpenAI (Optional)
+openai==1.30.0
+
+# Web & API
+requests==2.31.0
+
+# Export
+openpyxl==3.1.2
+markdown==3.5.2
+jinja2==3.1.4
+
+# Utilities
+tqdm==4.66.4
+python-dateutil==2.9.0
+
+# Security
+validators==0.22.0
+bleach==6.1.0
+
+# Deployment
+gunicorn==21.2.0
