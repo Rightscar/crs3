@@ -671,9 +671,9 @@ class DatabaseManager:
             
             # Database size
             try:
-            stats['database_size_mb'] = os.path.getsize(self.db_path) / (1024 * 1024)
-        except (FileNotFoundError, OSError):
-            stats['database_size_mb'] = 0
+                stats['database_size_mb'] = os.path.getsize(self.db_path) / (1024 * 1024)
+            except (FileNotFoundError, OSError):
+                stats['database_size_mb'] = 0
             
             return stats
 

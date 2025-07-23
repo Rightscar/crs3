@@ -391,8 +391,12 @@ Make the interview engaging and informative.""",
         Returns:
             GPTConfig object
         """
-        config_dict = json.loads(config_json)
-        return GPTConfig(**config_dict)
+        try:
+            config_dict = json.loads(config_json)
+            return GPTConfig(**config_dict)
+        except (json.JSONDecodeError, TypeError, ValueError) as e:
+            logger.error(f"Failed to parse config JSON: {e}")
+            return GPTConfig()  # Return default config
     
     def validate_config(self, config: GPTConfig) -> List[str]:
         """

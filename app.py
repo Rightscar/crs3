@@ -813,7 +813,10 @@ class UniversalDocumentReaderApp:
             zoom_options = ["50%", "75%", "100%", "125%", "150%", "200%"]
             zoom_index = zoom_options.index("100%")
             zoom = st.selectbox("Zoom", zoom_options, index=zoom_index, key="zoom_select")
-            zoom_value = float(zoom.replace("%", "")) / 100
+            try:
+                zoom_value = float(zoom.replace("%", "")) / 100
+            except (ValueError, TypeError):
+                zoom_value = 1.0  # Default to 100%
             st.session_state.zoom_level = zoom_value
         
         with col5:

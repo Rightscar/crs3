@@ -302,7 +302,7 @@ def render_export_ui(dialogues: List[Dict[str, Any]]) -> None:
     with col1:
         st.metric("Total Dialogues", len(dialogues))
     with col2:
-                    avg_confidence = sum(d.get('confidence', 0.8) for d in dialogues) / len(dialogues) if dialogues and len(dialogues) > 0 else 0
+        avg_confidence = sum(d.get('confidence', 0.8) for d in dialogues) / len(dialogues) if dialogues and len(dialogues) > 0 else 0
         st.metric("Avg Confidence", f"{avg_confidence:.2f}")
     with col3:
         unique_chunks = len(set(d.get('source_chunk_id', '') for d in dialogues))

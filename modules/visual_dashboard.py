@@ -486,7 +486,6 @@ class VisualDashboard:
             return logs
         
         try:
-                    try:
             with open(file_path, 'r') as f:
                 lines = f.readlines()
         except (FileNotFoundError, PermissionError, OSError) as e:

@@ -229,7 +229,8 @@ class AnalyticsDashboard:
                 st.metric("Avg Duration", "N/A")
         
         with col4:
-            session_duration = time.time() - st.session_state.session_start_time
+            session_start_time = st.session_state.get('session_start_time', time.time())
+            session_duration = time.time() - session_start_time
             st.metric("Session Time", f"{session_duration/60:.1f}m")
         
         # System performance
@@ -509,7 +510,7 @@ class AnalyticsDashboard:
                     "session_info": {
                         "session_id": st.session_state.analytics_session_id,
                         "export_timestamp": datetime.now().isoformat(),
-                        "session_duration": time.time() - st.session_state.session_start_time
+                        "session_duration": time.time() - st.session_state.get('session_start_time', time.time())
                     },
                     "analytics_data": st.session_state.analytics_data
                 }
@@ -555,7 +556,7 @@ class AnalyticsDashboard:
         processing_events = st.session_state.analytics_data['processing_events']
         performance_metrics = st.session_state.analytics_data['performance_metrics']
         
-        session_duration = time.time() - st.session_state.session_start_time
+        session_duration = time.time() - st.session_state.get('session_start_time', time.time())
         
         report = f"""# Analytics Summary Report
 
@@ -635,7 +636,7 @@ Session Duration: {session_duration/60:.1f} minutes
         
         summary = {
             'session_id': st.session_state.analytics_session_id,
-            'session_duration': time.time() - st.session_state.session_start_time,
+            'session_duration': time.time() - st.session_state.get('session_start_time', time.time()),
             'total_operations': len(processing_events),
             'total_metrics': len(performance_metrics),
             'success_rate': 0,
