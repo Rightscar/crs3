@@ -270,8 +270,12 @@ class EnhancedLogging:
         try:
             log_file = self.log_dir / "app.log"
             if log_file.exists():
-                with open(log_file, 'r') as f:
-                    lines = f.readlines()
+                        try:
+            with open(log_file, 'r') as f:
+                lines = f.readlines()
+        except (FileNotFoundError, PermissionError, OSError) as e:
+            logger.warning(f"Could not read log file {log_file}: {e}")
+            return []
                 
                 # Show last 20 lines
                 recent_lines = lines[-20:] if len(lines) > 20 else lines

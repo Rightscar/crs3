@@ -220,8 +220,15 @@ class EnhancedOCRProcessor:
                 output_type=pytesseract.Output.DICT
             )
             
-            # Calculate confidence and extract text
-            confidences = [int(conf) for conf in data['conf'] if int(conf) > 0]
+            # Calculate confidence and extract text (safely)
+            confidences = []
+            for conf in data.get('conf', []):
+                try:
+                    conf_int = int(conf) if str(conf).isdigit() else 0
+                    if conf_int > 0:
+                        confidences.append(conf_int)
+                except (ValueError, TypeError):
+                    continue
             avg_confidence = sum(confidences) / len(confidences) if confidences else 0
             
             # Extract text

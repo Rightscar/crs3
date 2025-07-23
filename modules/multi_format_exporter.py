@@ -302,7 +302,7 @@ def render_export_ui(dialogues: List[Dict[str, Any]]) -> None:
     with col1:
         st.metric("Total Dialogues", len(dialogues))
     with col2:
-        avg_confidence = sum(d.get('confidence', 0.8) for d in dialogues) / len(dialogues)
+                    avg_confidence = sum(d.get('confidence', 0.8) for d in dialogues) / len(dialogues) if dialogues and len(dialogues) > 0 else 0
         st.metric("Avg Confidence", f"{avg_confidence:.2f}")
     with col3:
         unique_chunks = len(set(d.get('source_chunk_id', '') for d in dialogues))
@@ -499,7 +499,8 @@ Generated on: {timestamp}
         report += "## Summary Statistics\n\n"
         report += f"- **Total Results:** {len(results)}\n"
         report += f"- **Result Types:** {len(results_by_type)}\n"
-        report += f"- **Average Confidence:** {sum(r.get('confidence', 0) for r in results) / len(results) * 100:.1f}%\n"
+        avg_confidence = sum(r.get('confidence', 0) for r in results) / len(results) if results and len(results) > 0 else 0
+        report += f"- **Average Confidence:** {avg_confidence * 100:.1f}%\n"
         
         # Pages processed
         pages = set(r.get('source_page', 0) for r in results)
@@ -542,7 +543,7 @@ Generated on: {timestamp}
         # Calculate analytics
         if results:
             structured_data["analytics"] = {
-                "average_confidence": sum(r.get('confidence', 0) for r in results) / len(results),
+                "average_confidence": sum(r.get('confidence', 0) for r in results) / len(results) if results and len(results) > 0 else 0,
                 "pages_processed": len(set(r.get('source_page', 0) for r in results)),
                 "result_types": list(set(r.get('type', 'unknown') for r in results)),
                 "confidence_distribution": {

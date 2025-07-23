@@ -247,7 +247,10 @@ class SessionPersistence:
         if 'bookmarks' not in st.session_state:
             st.session_state.bookmarks = []
         
-        st.session_state.bookmarks.append({
+                    # Safe bookmark append
+            if 'bookmarks' not in st.session_state:
+                st.session_state.bookmarks = []
+            st.session_state.bookmarks.append({
             'bookmark_id': bookmark_id,
             'page_number': page_number,
             'title': title,

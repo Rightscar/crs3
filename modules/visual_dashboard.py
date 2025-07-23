@@ -486,8 +486,12 @@ class VisualDashboard:
             return logs
         
         try:
+                    try:
             with open(file_path, 'r') as f:
                 lines = f.readlines()
+        except (FileNotFoundError, PermissionError, OSError) as e:
+            logger.warning(f"Could not read log file {file_path}: {e}")
+            return []
             
             for line in lines[-max_lines:]:
                 if line.strip():

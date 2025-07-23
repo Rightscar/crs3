@@ -152,6 +152,17 @@ class DocxRenderer:
             logger.error(f"Metadata extraction error: {e}")
             return {'error': str(e)}
     
+    def _safe_get_heading_level(self, paragraph) -> int:
+        """Safely extract heading level from paragraph style"""
+        try:
+            if paragraph and hasattr(paragraph, 'style') and paragraph.style:
+                style_name = paragraph.style.name
+                if style_name and len(style_name) > 0 and style_name[-1].isdigit():
+                    return int(style_name[-1])
+        except (AttributeError, ValueError, TypeError, IndexError):
+            pass
+        return 1  # Default level
+
     def get_table_of_contents(self) -> List[Dict[str, Any]]:
         """Extract table of contents (basic implementation for DOCX)"""
         if not self.document:
@@ -165,7 +176,7 @@ class DocxRenderer:
                     toc.append({
                         'title': paragraph.text,
                         'page': (i // 10) + 1,  # Approximate page
-                        'level': int(paragraph.style.name[-1]) if paragraph.style.name[-1].isdigit() else 1
+                        'level': self._safe_get_heading_level(paragraph)
                     })
             
             return toc[:20]  # Limit to first 20 headings

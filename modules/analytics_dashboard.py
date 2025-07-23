@@ -119,6 +119,11 @@ class AnalyticsDashboard:
             metadata=metadata or {}
         )
         
+        # Safe append to analytics data
+        if 'analytics_data' not in st.session_state:
+            st.session_state.analytics_data = {'performance_metrics': [], 'processing_events': []}
+        if 'performance_metrics' not in st.session_state.analytics_data:
+            st.session_state.analytics_data['performance_metrics'] = []
         st.session_state.analytics_data['performance_metrics'].append(asdict(metric))
         
         # Keep only last 1000 metrics to prevent memory issues
@@ -143,6 +148,11 @@ class AnalyticsDashboard:
             metadata=metadata or {}
         )
         
+        # Safe append to processing events
+        if 'analytics_data' not in st.session_state:
+            st.session_state.analytics_data = {'performance_metrics': [], 'processing_events': []}
+        if 'processing_events' not in st.session_state.analytics_data:
+            st.session_state.analytics_data['processing_events'] = []
         st.session_state.analytics_data['processing_events'].append(asdict(event))
         
         # Performance tracking
