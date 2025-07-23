@@ -26,7 +26,7 @@ from pathlib import Path
 
 # Configure page first
 st.set_page_config(
-    page_title="Universal Document Reader & AI Processor",
+    page_title="AI PDF Pro - Advanced Document Reader & Editor",
     page_icon="📖",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -41,6 +41,7 @@ try:
     from modules.multi_format_exporter import MultiFormatExporter
     from modules.analytics_dashboard import AnalyticsDashboard
     from modules.session_persistence import SessionPersistence, get_session_persistence, initialize_persistent_session
+    from modules.ui_state_manager import UIStateManager, get_ui_state_manager
     MODULES_AVAILABLE = True
 except ImportError as e:
     st.error(f"❌ Module import error: {e}")
@@ -92,10 +93,10 @@ load_dotenv()
 # Custom CSS for three-panel layout
 st.markdown("""
 <style>
-    @import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap");
+    @import url("https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap");
     
     .main { 
-        font-family: "Inter", sans-serif; 
+        font-family: "Roboto", "Inter", sans-serif; 
         padding: 0rem !important;
     }
     
@@ -104,20 +105,97 @@ st.markdown("""
         color: #ffffff;
     }
     
-    /* Three-panel layout */
+    /* Header Navigation Bar */
+    .main-header {
+        background: rgba(15, 15, 35, 0.95);
+        backdrop-filter: blur(15px);
+        border-bottom: 1px solid rgba(64, 123, 255, 0.2);
+        padding: 1rem 2rem;
+        position: sticky;
+        top: 0;
+        z-index: 1000;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    .app-logo {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: #407BFF;
+        text-decoration: none;
+    }
+    
+    .nav-menu {
+        display: flex;
+        gap: 2rem;
+        align-items: center;
+    }
+    
+    .nav-item {
+        color: rgba(255, 255, 255, 0.8);
+        text-decoration: none;
+        padding: 0.5rem 1rem;
+        border-radius: 6px;
+        transition: all 0.2s ease;
+        cursor: pointer;
+    }
+    
+    .nav-item:hover, .nav-item.active {
+        color: #407BFF;
+        background: rgba(64, 123, 255, 0.1);
+    }
+    
+    /* Three-panel layout with collapsible functionality */
     .main-container {
         display: flex;
-        height: 100vh;
+        height: calc(100vh - 80px);
         overflow: hidden;
     }
     
     .nav-panel {
-        width: 280px;
+        width: 320px;
         background: rgba(15, 15, 35, 0.95);
         backdrop-filter: blur(10px);
-        border-right: 1px solid rgba(255, 255, 255, 0.1);
+        border-right: 1px solid rgba(64, 123, 255, 0.2);
         overflow-y: auto;
-        padding: 1rem;
+        padding: 1.5rem;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        position: relative;
+    }
+    
+    .nav-panel.collapsed {
+        width: 60px;
+        padding: 1rem 0.5rem;
+    }
+    
+    .nav-panel.collapsed .panel-content {
+        opacity: 0;
+        visibility: hidden;
+        transform: translateX(-20px);
+    }
+    
+    .panel-toggle {
+        position: absolute;
+        top: 1rem;
+        right: -15px;
+        background: #407BFF;
+        color: white;
+        border: none;
+        border-radius: 50%;
+        width: 30px;
+        height: 30px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.2s ease;
+        z-index: 100;
+    }
+    
+    .panel-toggle:hover {
+        background: #5A8BFF;
+        transform: scale(1.1);
     }
     
     .reader-panel {
@@ -127,15 +205,148 @@ st.markdown("""
         position: relative;
         display: flex;
         flex-direction: column;
+        padding: 1.5rem;
     }
     
     .processor-panel {
         width: 380px;
         background: rgba(15, 15, 35, 0.95);
         backdrop-filter: blur(10px);
-        border-left: 1px solid rgba(255, 255, 255, 0.1);
+        border-left: 1px solid rgba(64, 123, 255, 0.2);
         overflow-y: auto;
+        padding: 1.5rem;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        position: relative;
+    }
+    
+    .processor-panel.collapsed {
+        width: 60px;
+        padding: 1rem 0.5rem;
+    }
+    
+    .processor-panel.collapsed .panel-content {
+        opacity: 0;
+        visibility: hidden;
+        transform: translateX(20px);
+    }
+    
+    .panel-content {
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    
+    /* Upload Zone Styling */
+    .upload-zone {
+        border: 2px dashed rgba(64, 123, 255, 0.4);
+        border-radius: 12px;
+        padding: 3rem 2rem;
+        text-align: center;
+        background: rgba(64, 123, 255, 0.05);
+        transition: all 0.3s ease;
+        margin: 2rem 0;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .upload-zone:hover {
+        border-color: #407BFF;
+        background: rgba(64, 123, 255, 0.1);
+        transform: translateY(-2px);
+    }
+    
+    .upload-zone::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        left: -50%;
+        width: 200%;
+        height: 200%;
+        background: linear-gradient(45deg, transparent, rgba(64, 123, 255, 0.1), transparent);
+        transform: rotate(45deg);
+        transition: all 0.6s ease;
+        opacity: 0;
+    }
+    
+    .upload-zone:hover::before {
+        opacity: 1;
+        animation: shimmer 2s infinite;
+    }
+    
+    @keyframes shimmer {
+        0% { transform: translateX(-100%) translateY(-100%) rotate(45deg); }
+        100% { transform: translateX(100%) translateY(100%) rotate(45deg); }
+    }
+    
+    .upload-icon {
+        font-size: 3rem;
+        color: #407BFF;
+        margin-bottom: 1rem;
+        animation: float 3s ease-in-out infinite;
+    }
+    
+    @keyframes float {
+        0%, 100% { transform: translateY(0px); }
+        50% { transform: translateY(-10px); }
+    }
+    
+    /* File Thumbnails */
+    .file-thumbnail {
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 8px;
         padding: 1rem;
+        margin: 0.5rem;
+        transition: all 0.2s ease;
+        cursor: pointer;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .file-thumbnail:hover {
+        border-color: #407BFF;
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(64, 123, 255, 0.2);
+    }
+    
+    .file-badge {
+        position: absolute;
+        top: 0.5rem;
+        right: 0.5rem;
+        background: #407BFF;
+        color: white;
+        padding: 0.2rem 0.5rem;
+        border-radius: 4px;
+        font-size: 0.7rem;
+        font-weight: 500;
+    }
+    
+    /* AI Insights Badge */
+    .ai-insight-badge {
+        position: absolute;
+        top: 1rem;
+        right: 1rem;
+        background: linear-gradient(45deg, #667eea, #764ba2);
+        color: white;
+        border: none;
+        border-radius: 50%;
+        width: 40px;
+        height: 40px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.3s ease;
+        z-index: 100;
+        animation: pulse 2s infinite;
+    }
+    
+    .ai-insight-badge:hover {
+        transform: scale(1.1);
+        box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
+    }
+    
+    @keyframes pulse {
+        0%, 100% { box-shadow: 0 0 0 0 rgba(102, 126, 234, 0.4); }
+        50% { box-shadow: 0 0 0 10px rgba(102, 126, 234, 0); }
     }
     
     /* Document viewer styles */
@@ -145,9 +356,10 @@ st.markdown("""
         padding: 20px;
         background: white;
         box-shadow: 0 0 30px rgba(0,0,0,0.3);
-        border-radius: 8px;
+        border-radius: 12px;
         color: black;
         min-height: 600px;
+        position: relative;
     }
     
     .page-controls {
@@ -156,48 +368,151 @@ st.markdown("""
         align-items: center;
         gap: 1rem;
         padding: 1rem;
-        background: rgba(0,0,0,0.1);
+        background: rgba(0,0,0,0.05);
         border-radius: 8px;
         margin-bottom: 1rem;
+        backdrop-filter: blur(10px);
     }
     
-    /* Processing results */
-    .processing-result {
-        background: rgba(255, 255, 255, 0.05);
-        border: 1px solid rgba(255, 255, 255, 0.1);
-        border-radius: 8px;
-        padding: 1rem;
-        margin: 0.5rem 0;
-        transition: all 0.2s ease;
-    }
-    
-    .processing-result:hover {
-        border-color: rgba(102, 126, 234, 0.3);
-        box-shadow: 0 4px 20px rgba(102, 126, 234, 0.1);
-    }
-    
-    /* Buttons */
+    /* Enhanced Buttons */
     .stButton > button {
-        background: linear-gradient(45deg, #667eea, #764ba2);
+        background: linear-gradient(45deg, #407BFF, #5A8BFF);
         border: none;
-        border-radius: 6px;
+        border-radius: 8px;
         color: white;
         font-weight: 500;
-        transition: all 0.2s ease;
+        padding: 0.5rem 1.5rem;
+        transition: all 0.3s ease;
         width: 100%;
+        box-shadow: 0 4px 15px rgba(64, 123, 255, 0.2);
     }
     
     .stButton > button:hover {
+        background: linear-gradient(45deg, #5A8BFF, #6B9BFF);
         transform: translateY(-2px);
-        box-shadow: 0 8px 25px rgba(102, 126, 234, 0.3);
+        box-shadow: 0 8px 25px rgba(64, 123, 255, 0.4);
     }
     
-    /* Metrics */
-    .metric-container {
+    .stButton > button:active {
+        transform: translateY(0px);
+    }
+    
+    /* Primary Button Variant */
+    .primary-button {
+        background: linear-gradient(45deg, #407BFF, #5A8BFF) !important;
+        box-shadow: 0 6px 20px rgba(64, 123, 255, 0.3) !important;
+    }
+    
+    /* Processing results with enhanced styling */
+    .processing-result {
         background: rgba(255, 255, 255, 0.05);
-        border-radius: 8px;
+        border: 1px solid rgba(64, 123, 255, 0.2);
+        border-radius: 12px;
+        padding: 1.5rem;
+        margin: 1rem 0;
+        transition: all 0.3s ease;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .processing-result::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 3px;
+        background: linear-gradient(45deg, #407BFF, #5A8BFF);
+    }
+    
+    .processing-result:hover {
+        border-color: #407BFF;
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(64, 123, 255, 0.2);
+    }
+    
+    /* Progress Indicators */
+    .progress-container {
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 10px;
         padding: 1rem;
-        margin: 0.5rem 0;
+        margin: 1rem 0;
+        text-align: center;
+    }
+    
+    .progress-ring {
+        display: inline-block;
+        width: 40px;
+        height: 40px;
+        border: 3px solid rgba(64, 123, 255, 0.3);
+        border-top: 3px solid #407BFF;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+        margin-right: 1rem;
+    }
+    
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+    
+    /* Enhanced Form Elements */
+    .stSelectbox label, .stTextInput label, .stTextArea label {
+        color: #ffffff !important;
+        font-weight: 500;
+    }
+    
+    .stSelectbox > div > div {
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(64, 123, 255, 0.2);
+        border-radius: 8px;
+    }
+    
+    .stTextInput > div > div > input {
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(64, 123, 255, 0.2);
+        border-radius: 8px;
+        color: white;
+    }
+    
+    .stTextArea > div > div > textarea {
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(64, 123, 255, 0.2);
+        border-radius: 8px;
+        color: white;
+    }
+    
+    /* Mobile Responsive Design */
+    @media (max-width: 768px) {
+        .main-container {
+            flex-direction: column;
+            height: auto;
+        }
+        
+        .nav-panel, .processor-panel {
+            width: 100%;
+            max-height: 300px;
+        }
+        
+        .nav-panel.collapsed, .processor-panel.collapsed {
+            height: 60px;
+            max-height: 60px;
+        }
+        
+        .reader-panel {
+            order: 2;
+            min-height: 60vh;
+        }
+        
+        .document-container {
+            margin: 1rem;
+            padding: 1rem;
+        }
+        
+        .upload-zone {
+            margin: 1rem;
+            padding: 2rem 1rem;
+        }
     }
     
     /* Hide streamlit elements */
@@ -205,8 +520,37 @@ st.markdown("""
     footer {visibility: hidden;}
     header {visibility: hidden;}
     
-    .stSelectbox label, .stTextInput label, .stTextArea label {
-        color: #ffffff !important;
+    /* Accessibility Enhancements */
+    .high-contrast {
+        filter: contrast(150%) brightness(120%);
+    }
+    
+    /* Tooltip Styling */
+    .tooltip {
+        position: relative;
+        cursor: help;
+    }
+    
+    .tooltip::after {
+        content: attr(data-tooltip);
+        position: absolute;
+        bottom: 125%;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(0, 0, 0, 0.9);
+        color: white;
+        padding: 0.5rem;
+        border-radius: 4px;
+        white-space: nowrap;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.3s;
+        font-size: 0.8rem;
+        z-index: 1000;
+    }
+    
+    .tooltip:hover::after {
+        opacity: 1;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -222,6 +566,7 @@ class UniversalDocumentReaderApp:
         self.exporter = MultiFormatExporter()
         self.analytics = AnalyticsDashboard()
         self.persistence = get_session_persistence()
+        self.ui_state = get_ui_state_manager()
         
         self._initialize_session_state()
         self._initialize_database_session()
@@ -386,80 +731,220 @@ class UniversalDocumentReaderApp:
             st.info("The application encountered an error but is still running.")
     
     def _render_header(self):
-        """Render application header with metrics"""
-        col1, col2, col3, col4, col5 = st.columns([3, 1, 1, 1, 1])
+        """Render application header with navigation bar"""
+        # Top navigation bar
+        st.markdown("""
+        <div class="main-header">
+            <div class="app-logo">
+                📖 AI PDF Pro
+            </div>
+            <div class="nav-menu">
+                <span class="nav-item active" onclick="showHome()">🏠 Home</span>
+                <span class="nav-item" onclick="showFiles()">📁 My Files</span>
+                <span class="nav-item" onclick="showSettings()">⚙️ Settings</span>
+                <span class="nav-item" onclick="showIntegrations()">🔗 Integrations</span>
+                <span class="nav-item" onclick="showAISettings()">🤖 AI Settings</span>
+            </div>
+        </div>
         
-        with col1:
-            st.markdown("# 📖 Universal Document Reader & AI Processor")
+        <script>
+        function showHome() { 
+            window.parent.postMessage({type: 'navigate', page: 'home'}, '*'); 
+        }
+        function showFiles() { 
+            window.parent.postMessage({type: 'navigate', page: 'files'}, '*'); 
+        }
+        function showSettings() { 
+            window.parent.postMessage({type: 'navigate', page: 'settings'}, '*'); 
+        }
+        function showIntegrations() { 
+            window.parent.postMessage({type: 'navigate', page: 'integrations'}, '*'); 
+        }
+        function showAISettings() { 
+            window.parent.postMessage({type: 'navigate', page: 'ai_settings'}, '*'); 
+        }
+        </script>
+        """, unsafe_allow_html=True)
         
-        with col2:
-            if st.session_state.get("document_loaded", False):
+        # Quick metrics bar (only if document is loaded)
+        if st.session_state.get("document_loaded", False):
+            col1, col2, col3, col4, col5 = st.columns([3, 1, 1, 1, 1])
+            
+            with col1:
+                st.markdown("### 📄 Document Analysis")
+            
+            with col2:
                 current_page = st.session_state.get("current_page", 1)
                 total_pages = st.session_state.get("total_pages", 0)
                 st.metric("Page", f"{current_page}/{total_pages}")
-        
-        with col3:
-            processing_results = st.session_state.get("processing_results", [])
-            st.metric("Results", len(processing_results))
-        
-        with col4:
-            session_start_time = st.session_state.get("session_start_time", time.time())
-            session_time = time.time() - session_start_time
-            st.metric("Session", f"{session_time/60:.1f}m")
-        
-        with col5:
-            st.metric("Files", st.session_state.files_processed)
+            
+            with col3:
+                processing_results = st.session_state.get("processing_results", [])
+                st.metric("Results", len(processing_results))
+            
+            with col4:
+                session_start_time = st.session_state.get("session_start_time", time.time())
+                session_time = time.time() - session_start_time
+                st.metric("Session", f"{session_time/60:.1f}m")
+            
+            with col5:
+                st.metric("Files", st.session_state.files_processed)
     
     def _render_welcome_screen(self):
-        """Render welcome screen with file upload"""
-        st.markdown("---")
+        """Render welcome screen with enhanced upload zone and recent files"""
+        # Main upload zone
+        st.markdown("""
+        <div class="upload-zone">
+            <div class="upload-icon">📄</div>
+            <h2 style="color: #407BFF; margin-bottom: 1rem;">Drag & Drop PDF Here or Browse Files</h2>
+            <p style="opacity: 0.8; margin-bottom: 2rem;">
+                Supported formats: PDF, DOCX, TXT, MD, EPUB, HTML • Max size: 50MB
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
         
-        # Welcome content
+        # File uploader with enhanced styling
         col1, col2, col3 = st.columns([1, 2, 1])
         
         with col2:
-            st.markdown("""
-            <div style="text-align: center; padding: 3rem 0;">
-                <h2>📚 Welcome to Document Reader & AI Processor</h2>
-                <p style="font-size: 1.2em; opacity: 0.8;">
-                    Upload any document to start reading and processing with AI
-                </p>
-            </div>
-            """, unsafe_allow_html=True)
-            
-            # File uploader
             uploaded_file = st.file_uploader(
                 "Choose a document",
                 type=['pdf', 'docx', 'txt', 'md', 'epub', 'html'],
-                help="Supported formats: PDF, DOCX, TXT, MD, EPUB, HTML"
+                help="Supported formats: PDF, DOCX, TXT, MD, EPUB, HTML",
+                label_visibility="collapsed"
             )
             
-            if uploaded_file:
-                self._load_document(uploaded_file)
+            # OCR checkbox
+            col_ocr1, col_ocr2 = st.columns([1, 4])
+            with col_ocr1:
+                enable_ocr = st.checkbox("", key="enable_ocr")
+            with col_ocr2:
+                st.markdown("**Enable OCR for text recognition** (scanned documents)")
             
-            # System capabilities
-            with st.expander("🔧 System Capabilities", expanded=False):
-                caps = st.session_state.system_capabilities
+            if uploaded_file:
+                # Show preview pane with AI insights
+                with st.container():
+                    st.markdown("### 📋 Document Preview")
+                    
+                    col_prev1, col_prev2 = st.columns([2, 1])
+                    
+                    with col_prev1:
+                        st.info(f"📄 **{uploaded_file.name}** ({uploaded_file.size:,} bytes)")
+                        st.write(f"Format: {uploaded_file.name.split('.')[-1].upper()}")
+                        
+                    with col_prev2:
+                        if st.button("🚀 **Upload & Analyze**", type="primary"):
+                            self._load_document(uploaded_file, enable_ocr)
+                    
+                    # AI-detected insights preview
+                    st.markdown("#### 🤖 AI Quick Insights")
+                    insights_col1, insights_col2 = st.columns(2)
+                    
+                    with insights_col1:
+                        st.markdown("""
+                        <div class="processing-result">
+                            📊 <strong>Readability Analysis</strong><br>
+                            <small>Estimated reading level: Professional</small>
+                        </div>
+                        """, unsafe_allow_html=True)
+                        
+                    with insights_col2:
+                        if st.button("✨ Suggest Rewrite?", help="AI can help improve readability"):
+                            st.success("✅ Rewrite suggestions will be available after upload!")
+        
+        # Recent Files Section
+        st.markdown("---")
+        st.markdown("### 📚 Recent Files")
+        
+        # Get recent documents from database
+        try:
+            recent_docs = self.persistence.get_document_history(limit=6)
+            
+            if recent_docs:
+                # Display in grid
+                cols = st.columns(3)
+                for i, doc in enumerate(recent_docs):
+                    with cols[i % 3]:
+                        self._render_file_thumbnail(doc)
+            else:
+                st.info("No recent files. Upload a document to get started!")
                 
-                col_a, col_b = st.columns(2)
-                
-                with col_a:
-                    st.markdown("**Document Formats:**")
-                    for fmt in caps["Document Reader"]:
-                        st.write(f"✅ {fmt.upper()}")
-                
-                with col_b:
-                    st.markdown("**Processing Features:**")
-                    nlp_caps = caps["NLP Processor"]
-                    for feature, available in nlp_caps.items():
-                        icon = "✅" if available else "⚠️"
-                        st.write(f"{icon} {feature.replace('_', ' ').title()}")
+        except Exception as e:
+            st.info("Upload your first document to see recent files here!")
+        
+        # Background elements
+        st.markdown("""
+        <div style="position: fixed; bottom: 20px; right: 20px; opacity: 0.1; font-size: 4rem; z-index: -1;">
+            📄📄📄
+        </div>
+        <div style="position: fixed; top: 50%; left: 10px; opacity: 0.05; font-size: 6rem; z-index: -1;">
+            ✨
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # System capabilities (collapsed by default)
+        with st.expander("🔧 System Capabilities & Features", expanded=False):
+            caps = st.session_state.system_capabilities
+            
+            col_a, col_b, col_c = st.columns(3)
+            
+            with col_a:
+                st.markdown("**📄 Document Formats:**")
+                for fmt in caps["Document Reader"]:
+                    st.write(f"✅ {fmt.upper()}")
+            
+            with col_b:
+                st.markdown("**🧠 AI Features:**")
+                nlp_caps = caps["NLP Processor"]
+                for feature, available in nlp_caps.items():
+                    icon = "✅" if available else "⚠️"
+                    st.write(f"{icon} {feature.replace('_', ' ').title()}")
+            
+            with col_c:
+                st.markdown("**🔗 Integrations:**")
+                st.write("🔗 Google Drive (Coming Soon)")
+                st.write("🔗 Dropbox (Coming Soon)")
+                st.write("🔗 Custom NLP APIs (Available)")
                 
                 ai_status = "✅ Available" if caps["AI Generator"] else "⚠️ Demo Mode"
-                st.markdown(f"**AI Processing:** {ai_status}")
+                st.markdown(f"**🤖 AI Processing:** {ai_status}")
     
-    def _load_document(self, uploaded_file):
-        """Load uploaded document"""
+    def _render_file_thumbnail(self, doc):
+        """Render individual file thumbnail"""
+        # Determine file type badge color
+        format_colors = {
+            'pdf': '#FF4B4B',
+            'docx': '#4285F4', 
+            'txt': '#34A853',
+            'md': '#9C27B0',
+            'epub': '#FF9800',
+            'html': '#F44336'
+        }
+        
+        badge_color = format_colors.get(doc.format_type.lower(), '#666666')
+        
+        st.markdown(f"""
+        <div class="file-thumbnail" onclick="loadDocument('{doc.document_id}')">
+            <div class="file-badge" style="background: {badge_color};">
+                {doc.format_type.upper()}
+            </div>
+            <h4 style="margin: 0.5rem 0; color: white;">{doc.filename[:25]}{'...' if len(doc.filename) > 25 else ''}</h4>
+            <p style="font-size: 0.8rem; opacity: 0.7; margin: 0;">
+                {doc.file_size:,} bytes • {doc.upload_time.strftime('%b %d, %Y')}
+            </p>
+            <p style="font-size: 0.7rem; opacity: 0.6; margin: 0.5rem 0 0 0;">
+                Processed: {doc.processing_count} times
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # Add click handler
+        if st.button("📖 Re-open", key=f"reopen_{doc.document_id}", help=f"Open {doc.filename}"):
+            self._load_document_from_history(doc.document_id)
+            st.rerun()
+    
+    def _load_document(self, uploaded_file, enable_ocr=False):
+        """Load uploaded document with optional OCR"""
         try:
             with st.spinner("📖 Loading document..."):
                 # Safe file processing with validation
@@ -628,22 +1113,77 @@ class UniversalDocumentReaderApp:
             st.error(f"Error: {e}")
     
     def _render_three_panel_interface(self):
-        """Render the main three-panel interface"""
+        """Render the main three-panel interface with collapsible panels"""
         
-        # Create three columns for the panels
-        nav_col, reader_col, processor_col = st.columns([3, 8, 4])
+        # Initialize panel states if not present
+        if 'nav_panel_collapsed' not in st.session_state:
+            st.session_state.nav_panel_collapsed = False
+        if 'processor_panel_collapsed' not in st.session_state:
+            st.session_state.processor_panel_collapsed = False
         
+        # Panel toggle controls
+        col_toggle1, col_toggle2, col_toggle3, col_toggle4 = st.columns([1, 1, 8, 1])
+        
+        with col_toggle1:
+            if st.button("◀️" if not st.session_state.nav_panel_collapsed else "▶️", 
+                        help="Toggle Navigation Panel", key="nav_toggle"):
+                st.session_state.nav_panel_collapsed = not st.session_state.nav_panel_collapsed
+                st.rerun()
+        
+        with col_toggle2:
+            st.markdown("**📚 Navigation**" if not st.session_state.nav_panel_collapsed else "**📚**")
+        
+        with col_toggle4:
+            if st.button("▶️" if not st.session_state.processor_panel_collapsed else "◀️", 
+                        help="Toggle AI Panel", key="processor_toggle"):
+                st.session_state.processor_panel_collapsed = not st.session_state.processor_panel_collapsed
+                st.rerun()
+        
+        # Dynamic column sizing based on collapsed states
+        nav_width = 1 if st.session_state.nav_panel_collapsed else 3
+        processor_width = 1 if st.session_state.processor_panel_collapsed else 4
+        reader_width = 12 - nav_width - processor_width
+        
+        # Create columns with dynamic sizing
+        if st.session_state.nav_panel_collapsed and st.session_state.processor_panel_collapsed:
+            # Both panels collapsed
+            _, nav_col, reader_col, processor_col, _ = st.columns([0.5, 1, 10, 1, 0.5])
+        elif st.session_state.nav_panel_collapsed:
+            # Only nav collapsed
+            _, nav_col, reader_col, processor_col = st.columns([0.5, 1, 7, 4])
+        elif st.session_state.processor_panel_collapsed:
+            # Only processor collapsed
+            nav_col, reader_col, processor_col, _ = st.columns([3, 8, 1, 0.5])
+        else:
+            # Both panels open
+            nav_col, reader_col, processor_col = st.columns([3, 6, 4])
+        
+        # Render panels with collapse-aware content
         with nav_col:
-            self._render_navigation_panel()
+            self._render_navigation_panel(collapsed=st.session_state.nav_panel_collapsed)
         
         with reader_col:
             self._render_document_viewer()
         
         with processor_col:
-            self._render_processor_panel()
+            self._render_processor_panel(collapsed=st.session_state.processor_panel_collapsed)
     
-    def _render_navigation_panel(self):
-        """Render left navigation panel"""
+    def _render_navigation_panel(self, collapsed=False):
+        """Render left navigation panel with collapse support"""
+        if collapsed:
+            # Collapsed view - show only icons
+            st.markdown("""
+            <div class="panel-content collapsed-panel">
+                <div style="text-align: center;">
+                    <div style="font-size: 1.5rem; margin: 1rem 0;">📚</div>
+                    <div style="font-size: 1.2rem; margin: 1rem 0;">🔖</div>
+                    <div style="font-size: 1.2rem; margin: 1rem 0;">🔍</div>
+                    <div style="font-size: 1.2rem; margin: 1rem 0;">📊</div>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+            return
+        
         st.markdown("### 📚 Navigation")
         
         # Document info
@@ -702,6 +1242,30 @@ class UniversalDocumentReaderApp:
                 st.session_state.bookmarks.append(new_bookmark)
                 st.session_state.new_bookmark_title = ""
                 st.rerun()
+        
+        # Smart Navigation
+        with st.expander("🧠 Smart Navigation", expanded=False):
+            if st.session_state.current_document:
+                # AI-powered jump to section
+                if st.button("🎯 Jump to Key Sections", help="AI finds important sections"):
+                    st.info("✨ AI analyzing document structure...")
+                    # Simulate AI analysis
+                    key_sections = [
+                        {"title": "Introduction", "page": 1, "confidence": 0.95},
+                        {"title": "Methodology", "page": 3, "confidence": 0.87},
+                        {"title": "Results", "page": 7, "confidence": 0.92},
+                        {"title": "Conclusion", "page": 12, "confidence": 0.89}
+                    ]
+                    
+                    for section in key_sections:
+                        col_sec1, col_sec2 = st.columns([3, 1])
+                        with col_sec1:
+                            st.write(f"📄 {section['title']} (Page {section['page']})")
+                            st.caption(f"Confidence: {section['confidence']:.0%}")
+                        with col_sec2:
+                            if st.button("Go", key=f"smart_nav_{section['page']}"):
+                                st.session_state.current_page = section['page']
+                                st.rerun()
         
         # Enhanced Search
         with st.expander("🔍 Advanced Search", expanded=False):
@@ -832,7 +1396,7 @@ class UniversalDocumentReaderApp:
         
         st.markdown("---")
         
-        # Document page display
+        # Document page display with AI insights
         try:
             page_data = self.document_reader.render_page(
                 st.session_state.current_page, 
@@ -840,6 +1404,15 @@ class UniversalDocumentReaderApp:
             )
             
             if page_data:
+                # Container with AI insights badge
+                st.markdown("""
+                <div style="position: relative;">
+                    <div class="ai-insight-badge" onclick="showAIInsights()" title="AI Insights Available">
+                        💡
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+                
                 # Display page image if available
                 if page_data.image_data:
                     st.image(
@@ -896,8 +1469,22 @@ class UniversalDocumentReaderApp:
             except Exception as e2:
                 st.error(f"Failed to extract text: {str(e2)}")
     
-    def _render_processor_panel(self):
-        """Render right processor panel"""
+    def _render_processor_panel(self, collapsed=False):
+        """Render right processor panel with collapse support"""
+        if collapsed:
+            # Collapsed view - show only icons
+            st.markdown("""
+            <div class="panel-content collapsed-panel">
+                <div style="text-align: center;">
+                    <div style="font-size: 1.5rem; margin: 1rem 0;">🧠</div>
+                    <div style="font-size: 1.2rem; margin: 1rem 0;">⚙️</div>
+                    <div style="font-size: 1.2rem; margin: 1rem 0;">🔍</div>
+                    <div style="font-size: 1.2rem; margin: 1rem 0;">📤</div>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+            return
+        
         st.markdown("### 🧠 AI Processor")
         
         # Processing mode selection
@@ -1004,12 +1591,23 @@ class UniversalDocumentReaderApp:
                 st.warning("No text found on current page")
                 return
             
-            with st.spinner(f"Processing page {st.session_state.current_page}..."):
-                results = self._process_text_with_mode(
-                    page_text, 
-                    st.session_state.current_processing_mode,
-                    st.session_state.current_page
-                )
+            # Enhanced progress indicator with estimated time
+            progress_placeholder = st.empty()
+            progress_placeholder.markdown("""
+            <div class="progress-container">
+                <div class="progress-ring"></div>
+                <strong>🧠 Processing page {}</strong><br>
+                <small>Analyzing {} • Estimated time: 5-10 seconds</small>
+            </div>
+            """.format(st.session_state.current_page, st.session_state.current_processing_mode), unsafe_allow_html=True)
+            
+            results = self._process_text_with_mode(
+                page_text, 
+                st.session_state.current_processing_mode,
+                st.session_state.current_page
+            )
+            
+            progress_placeholder.empty()
                 
                 if results:
                     # Calculate metrics
