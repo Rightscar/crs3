@@ -329,7 +329,7 @@ class UniversalDocumentReaderApp:
                 # Quick metrics
                 if hasattr(st.session_state, 'analytics_data'):
                     analytics_data = st.session_state.get('analytics_data', {'processing_events': []})
-                processing_events = analytics_data.get('processing_events', [])
+                    processing_events = analytics_data.get('processing_events', [])
                     
                     if processing_events:
                         col1, col2 = st.columns(2)
