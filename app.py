@@ -49,27 +49,40 @@ except ImportError as e:
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 
-# Early session state initialization to prevent AttributeError
-CRITICAL_SESSION_VARS = {
-    'search_results': [],
-    'processing_results': [],
-    'current_document': None,
-    'document_loaded': False,
-    'current_page': 1,
-    'total_pages': 0,
-    'session_start_time': time.time(),
-    'bookmarks': [],
-    'table_of_contents': [],
-    'processing_history': {},
-    'auto_process_enabled': False,
-    'keywords': '',
-    'context_query': ''
-}
+# ULTRA-SAFE SESSION STATE INITIALIZATION - PREVENTS ALL AttributeError CRASHES
+def ensure_session_state():
+    """Bulletproof session state initialization"""
+    CRITICAL_SESSION_VARS = {
+        'search_results': [],
+        'processing_results': [],
+        'current_document': None,
+        'document_loaded': False,
+        'current_page': 1,
+        'total_pages': 0,
+        'session_start_time': time.time(),
+        'bookmarks': [],
+        'table_of_contents': [],
+        'processing_history': {},
+        'auto_process_enabled': False,
+        'keywords': '',
+        'context_query': '',
+        'analytics_data': {'processing_events': [], 'performance_metrics': []},
+        'show_analytics': False,
+        'show_document_history': False,
+        'system_capabilities': {}
+    }
+    
+    # Force initialize ALL critical variables
+    for key, default_value in CRITICAL_SESSION_VARS.items():
+        if not hasattr(st.session_state, key) or key not in st.session_state:
+            try:
+                st.session_state[key] = default_value
+            except Exception:
+                # Fallback for any edge cases
+                setattr(st.session_state, key, default_value)
 
-# Initialize critical variables immediately
-for key, default_value in CRITICAL_SESSION_VARS.items():
-    if key not in st.session_state:
-        st.session_state[key] = default_value
+# Call immediately to prevent any access before initialization
+ensure_session_state()
 logger = logging.getLogger(__name__)
 
 # Load environment variables
@@ -280,6 +293,8 @@ class UniversalDocumentReaderApp:
                     
                     # Show document history button
                     if st.button("📚 Document History"):
+                        if 'show_document_history' not in st.session_state:
+                            st.session_state.show_document_history = False
                         st.session_state.show_document_history = True
                         
         except Exception as e:
@@ -300,6 +315,8 @@ class UniversalDocumentReaderApp:
             "Export Formats": ["JSON", "JSONL", "CSV", "Markdown", "HTML"]
         }
         
+        if 'system_capabilities' not in st.session_state:
+            st.session_state.system_capabilities = {}
         st.session_state.system_capabilities = capabilities
     
     def run(self):
@@ -311,7 +328,8 @@ class UniversalDocumentReaderApp:
                 
                 # Quick metrics
                 if hasattr(st.session_state, 'analytics_data'):
-                    processing_events = st.session_state.analytics_data.get('processing_events', [])
+                    analytics_data = st.session_state.get('analytics_data', {'processing_events': []})
+                processing_events = analytics_data.get('processing_events', [])
                     
                     if processing_events:
                         col1, col2 = st.columns(2)
@@ -1579,9 +1597,22 @@ class UniversalDocumentReaderApp:
 def main():
     """Main application entry point"""
     try:
-        # Ensure critical session state variables are initialized
-        if "search_results" not in st.session_state:
-            st.session_state.search_results = []
+        # BULLETPROOF: Ensure session state is initialized before ANYTHING else
+        ensure_session_state()
+        
+        # Double-check critical variables (paranoid safety)
+        critical_vars = ['search_results', 'processing_results', 'document_loaded', 
+                        'current_page', 'total_pages', 'session_start_time']
+        for var in critical_vars:
+            if var not in st.session_state:
+                if var == 'search_results' or var == 'processing_results':
+                    st.session_state[var] = []
+                elif var == 'document_loaded':
+                    st.session_state[var] = False
+                elif var in ['current_page', 'total_pages']:
+                    st.session_state[var] = 1 if var == 'current_page' else 0
+                elif var == 'session_start_time':
+                    st.session_state[var] = time.time()
         
         app = UniversalDocumentReaderApp()
         app.run()
