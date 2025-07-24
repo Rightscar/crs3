@@ -44,6 +44,7 @@ try:
     from modules.ui_state_manager import UIStateManager, get_ui_state_manager
     from modules.realtime_ai_processor import RealtimeAIProcessor, get_realtime_ai_processor
     from modules.ai_chat_interface import AIChatInterface, get_ai_chat_interface
+    from modules.edit_mode_manager import EditModeManager, get_edit_mode_manager
     MODULES_AVAILABLE = True
 except ImportError as e:
     st.error(f"❌ Module import error: {e}")
@@ -571,6 +572,7 @@ class UniversalDocumentReaderApp:
         self.ui_state = get_ui_state_manager()
         self.realtime_ai = get_realtime_ai_processor()
         self.ai_chat = get_ai_chat_interface()
+        self.edit_manager = get_edit_mode_manager()
         
         self._initialize_session_state()
         self._initialize_database_session()
@@ -1388,6 +1390,23 @@ class UniversalDocumentReaderApp:
             st.session_state.zoom_level = zoom_value
         
         with col5:
+            # Edit Mode Toggle
+            if not st.session_state.get('edit_mode_active', False):
+                if st.button("✏️ Edit Mode", type="primary", help="Enable editing for this document"):
+                    page_text = self.document_reader.extract_page_text(st.session_state.current_page)
+                    if self.edit_manager.enable_edit_mode(page_text):
+                        st.success("✅ Edit mode enabled!")
+                        st.rerun()
+            else:
+                if st.button("📖 Read Mode", help="Return to read-only mode"):
+                    if self.edit_manager.disable_edit_mode():
+                        st.success("📖 Returned to read mode")
+                        st.rerun()
+        
+        # Additional controls row
+        col_extra1, col_extra2, col_extra3, col_extra4 = st.columns(4)
+        
+        with col_extra1:
             if st.button("🔖 Bookmark"):
                 bookmark_title = f"Page {st.session_state.current_page}"
                 new_bookmark = {
@@ -1397,6 +1416,22 @@ class UniversalDocumentReaderApp:
                 }
                 st.session_state.bookmarks.append(new_bookmark)
                 st.success("Bookmark added!")
+        
+        with col_extra2:
+            if st.session_state.get('edit_mode_active', False):
+                edit_stats = self.edit_manager.get_edit_statistics()
+                st.metric("Changes", edit_stats['total_changes'])
+        
+        with col_extra3:
+            if st.session_state.get('edit_mode_active', False):
+                edit_stats = self.edit_manager.get_edit_statistics()
+                st.metric("Annotations", edit_stats['total_annotations'])
+        
+        with col_extra4:
+            if st.session_state.get('edit_mode_active', False):
+                # Export edited document
+                if st.button("📤 Export Edits"):
+                    self._show_export_edited_document()
         
         st.markdown("---")
         
@@ -1425,9 +1460,14 @@ class UniversalDocumentReaderApp:
                         use_container_width=True
                     )
                 
-                # Display text content with real-time AI analysis
+                # Display text content with real-time AI analysis or edit interface
                 if page_data.text_content:
-                    with st.expander("📝 Page Text with AI Analysis", expanded=True):
+                    # Check if in edit mode
+                    if st.session_state.get('edit_mode_active', False):
+                        with st.expander("✏️ Edit Mode Interface", expanded=True):
+                            edited_text = self.edit_manager.render_edit_interface(page_data.text_content)
+                    else:
+                        with st.expander("📝 Page Text with AI Analysis", expanded=True):
                         # Real-time AI processing toggle
                         col_toggle1, col_toggle2, col_toggle3 = st.columns(3)
                         
@@ -2600,6 +2640,86 @@ class UniversalDocumentReaderApp:
         except Exception as e:
             logger.error(f"Send chat message error: {e}")
             st.error("Failed to send message")
+    
+    def _show_export_edited_document(self):
+        """Show export options for edited document"""
+        try:
+            st.markdown("### 📤 Export Edited Document")
+            
+            # Export format selection
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                export_format = st.selectbox(
+                    "Export Format:",
+                    ["Text (.txt)", "HTML with Annotations (.html)", "Original + Changes (.txt)"],
+                    key="edit_export_format"
+                )
+            
+            with col2:
+                include_annotations = st.checkbox("Include Annotations", value=True)
+            
+            # Generate export
+            if st.button("📥 Generate Export", type="primary"):
+                
+                if export_format == "Text (.txt)":
+                    content = self.edit_manager.export_edited_document("txt")
+                    filename = f"edited_document_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
+                    mime_type = "text/plain"
+                
+                elif export_format == "HTML with Annotations (.html)":
+                    content = self.edit_manager.export_edited_document("html")
+                    filename = f"edited_document_{datetime.now().strftime('%Y%m%d_%H%M%S')}.html"
+                    mime_type = "text/html"
+                
+                else:  # Original + Changes
+                    original_text = st.session_state.edit_versions[0].content if st.session_state.edit_versions else ""
+                    current_text = st.session_state.edit_content
+                    
+                    content = f"""ORIGINAL DOCUMENT:
+{'-' * 50}
+{original_text}
+
+EDITED VERSION:
+{'-' * 50}
+{current_text}
+
+CHANGES SUMMARY:
+{'-' * 50}
+Total Changes: {len(st.session_state.edit_changes)}
+Total Annotations: {len(st.session_state.edit_annotations)}
+"""
+                    
+                    if include_annotations and st.session_state.edit_annotations:
+                        content += "\nANNOTATIONS:\n" + "-" * 20 + "\n"
+                        for i, annotation in enumerate(st.session_state.edit_annotations, 1):
+                            content += f"{i}. {annotation.type.title()}: {annotation.content}\n"
+                            content += f"   Page {annotation.page_number} • {annotation.timestamp}\n\n"
+                    
+                    filename = f"document_changes_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
+                    mime_type = "text/plain"
+                
+                # Download button
+                st.download_button(
+                    label=f"📥 Download {export_format}",
+                    data=content,
+                    file_name=filename,
+                    mime=mime_type,
+                    type="primary"
+                )
+                
+                st.success("✅ Export ready for download!")
+                
+                # Show export preview
+                with st.expander("📋 Export Preview", expanded=False):
+                    if export_format == "HTML with Annotations (.html)":
+                        st.markdown(content, unsafe_allow_html=True)
+                    else:
+                        st.text_area("Preview:", value=content[:1000] + "..." if len(content) > 1000 else content, height=200, disabled=True)
+            
+        except Exception as e:
+            logger.error(f"Export edited document error: {e}")
+            st.error("Failed to generate export")
 
 def main():
     """Main application entry point"""
