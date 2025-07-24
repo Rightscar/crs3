@@ -103,6 +103,12 @@ class CharacterAnalyzer:
         # Extract core values and beliefs
         values_beliefs = self._extract_values_and_beliefs(dialogues, contexts)
         
+        # Extract character motives and behavioral patterns
+        motives_behaviors = self._extract_motives_and_behaviors(character_name, dialogues, contexts)
+        
+        # Extract interaction patterns (how they treat others)
+        interaction_patterns = self._extract_interaction_patterns(character_name, dialogues, contexts)
+        
         # Generate unique character DNA
         character_dna = self._generate_character_dna(
             speech_analysis, emotional_profile, behaviors, 
@@ -119,6 +125,8 @@ class CharacterAnalyzer:
             'quirks_mannerisms': quirks,
             'decision_patterns': decision_patterns,
             'values_beliefs': values_beliefs,
+            'motives_behaviors': motives_behaviors,
+            'interaction_patterns': interaction_patterns,
             'uniqueness_score': self._calculate_uniqueness_score(character_dna)
         }
     
@@ -513,6 +521,234 @@ class CharacterAnalyzer:
             values['moral_code'] = f"Guided by {', '.join([v[0] for v in top_values])}"
         
         return values
+    
+    def _extract_motives_and_behaviors(self, character_name: str, dialogues: List[Dict], 
+                                      contexts: List[str]) -> Dict[str, Any]:
+        """Extract character's core motives and behavioral patterns"""
+        motives = {
+            'primary_motivations': [],
+            'behavioral_traits': {},
+            'manipulation_tactics': [],
+            'ego_indicators': 0,
+            'empathy_level': 0.5,
+            'aggression_style': '',
+            'social_tactics': [],
+            'hidden_agendas': []
+        }
+        
+        # Analyze for ego/narcissism
+        ego_keywords = ['i', 'me', 'my', 'myself', 'mine']
+        other_keywords = ['you', 'they', 'them', 'others', 'people']
+        
+        if dialogues:
+            all_dialogue = ' '.join([d['text'].lower() for d in dialogues])
+            words = all_dialogue.split()
+            
+            # Calculate ego ratio
+            ego_count = sum(1 for word in words if word in ego_keywords)
+            other_count = sum(1 for word in words if word in other_keywords)
+            
+            if ego_count + other_count > 0:
+                ego_ratio = ego_count / (ego_count + other_count)
+                motives['ego_indicators'] = ego_ratio
+                
+                if ego_ratio > 0.7:
+                    motives['behavioral_traits']['narcissistic'] = True
+                    motives['primary_motivations'].append('self-importance')
+                elif ego_ratio > 0.5:
+                    motives['behavioral_traits']['self-focused'] = True
+                    motives['primary_motivations'].append('personal gain')
+        
+        # Analyze put-downs and superiority complex
+        putdown_patterns = [
+            (r'(?:stupid|idiotic|foolish|dumb|ignorant)', 'intellectual_superiority'),
+            (r'(?:weak|pathetic|worthless|useless)', 'power_superiority'),
+            (r'(?:ugly|disgusting|repulsive)', 'aesthetic_superiority'),
+            (r'(?:poor|peasant|common|beneath)', 'class_superiority'),
+            (r'(?:naive|simple|childish|immature)', 'maturity_superiority')
+        ]
+        
+        superiority_count = 0
+        for dialogue in dialogues:
+            text_lower = dialogue['text'].lower()
+            for pattern, superiority_type in putdown_patterns:
+                if re.search(pattern, text_lower):
+                    superiority_count += 1
+                    if superiority_type not in motives['behavioral_traits']:
+                        motives['behavioral_traits'][superiority_type] = True
+                        motives['social_tactics'].append(f'puts others down for {superiority_type.replace("_", " ")}')
+        
+        # Determine aggression style
+        if superiority_count > len(dialogues) * 0.3:
+            motives['aggression_style'] = 'actively hostile'
+            motives['empathy_level'] = 0.2
+        elif superiority_count > len(dialogues) * 0.1:
+            motives['aggression_style'] = 'passive-aggressive'
+            motives['empathy_level'] = 0.4
+        else:
+            motives['aggression_style'] = 'non-aggressive'
+        
+        # Analyze manipulation tactics
+        manipulation_patterns = [
+            (r'(?:if you really|if you truly|if you cared)', 'guilt-tripping'),
+            (r'(?:everyone knows|everyone thinks|people say)', 'social pressure'),
+            (r'(?:you always|you never)', 'absolutism'),
+            (r'(?:i\'m just saying|just being honest|no offense but)', 'false disclaimers'),
+            (r'(?:you\'re too sensitive|can\'t take a joke|overreacting)', 'gaslighting'),
+            (r'(?:do this for me|you owe me|after all i\'ve done)', 'emotional blackmail')
+        ]
+        
+        for dialogue in dialogues:
+            text_lower = dialogue['text'].lower()
+            for pattern, tactic in manipulation_patterns:
+                if re.search(pattern, text_lower):
+                    if tactic not in motives['manipulation_tactics']:
+                        motives['manipulation_tactics'].append(tactic)
+        
+        # Analyze hidden agendas from contexts
+        agenda_keywords = {
+            'power': ['control', 'dominate', 'rule', 'command', 'authority'],
+            'wealth': ['money', 'rich', 'gold', 'treasure', 'fortune'],
+            'revenge': ['revenge', 'payback', 'vengeance', 'retribution'],
+            'recognition': ['fame', 'glory', 'recognition', 'admiration', 'respect'],
+            'love': ['love', 'affection', 'romance', 'heart', 'passion'],
+            'survival': ['survive', 'escape', 'hide', 'protect', 'safety']
+        }
+        
+        for context in contexts:
+            if character_name.lower() in context.lower():
+                for agenda, keywords in agenda_keywords.items():
+                    if any(keyword in context.lower() for keyword in keywords):
+                        if agenda not in motives['primary_motivations']:
+                            motives['primary_motivations'].append(agenda)
+        
+        # Analyze empathy level based on helping vs harming behaviors
+        helping_keywords = ['helped', 'saved', 'protected', 'comforted', 'supported', 'cared']
+        harming_keywords = ['hurt', 'harmed', 'betrayed', 'abandoned', 'ignored', 'mocked']
+        
+        helping_count = 0
+        harming_count = 0
+        
+        for context in contexts:
+            if character_name.lower() in context.lower():
+                context_lower = context.lower()
+                helping_count += sum(1 for keyword in helping_keywords if keyword in context_lower)
+                harming_count += sum(1 for keyword in harming_keywords if keyword in context_lower)
+        
+        if helping_count + harming_count > 0:
+            motives['empathy_level'] = helping_count / (helping_count + harming_count)
+        
+        return motives
+    
+    def _extract_interaction_patterns(self, character_name: str, dialogues: List[Dict], 
+                                    contexts: List[str]) -> Dict[str, Any]:
+        """Extract how character interacts with different types of people"""
+        patterns = {
+            'default_stance': '',
+            'power_dynamics': {},
+            'conversation_tactics': [],
+            'emotional_manipulation': [],
+            'respect_indicators': {},
+            'dismissive_behaviors': [],
+            'dominance_tactics': []
+        }
+        
+        # Analyze conversation starters
+        if dialogues:
+            # Check how they start conversations
+            first_words = []
+            for dialogue in dialogues[:10]:  # First 10 dialogues
+                words = dialogue['text'].split()
+                if words:
+                    first_words.append(words[0].lower())
+            
+            # Determine default stance
+            if any(word in ['listen', 'look', 'now', 'well'] for word in first_words):
+                patterns['default_stance'] = 'commanding'
+                patterns['conversation_tactics'].append('takes control of conversations')
+            elif any(word in ['i', 'my', 'me'] for word in first_words):
+                patterns['default_stance'] = 'self-centered'
+                patterns['conversation_tactics'].append('makes conversations about themselves')
+            elif any(word in ['you', 'your'] for word in first_words):
+                patterns['default_stance'] = 'confrontational'
+                patterns['conversation_tactics'].append('directly addresses others')
+            
+            # Analyze interruption patterns
+            interruption_markers = ['but', 'actually', 'no,', 'wait', 'hold on', 'excuse me']
+            interruption_count = 0
+            
+            for dialogue in dialogues:
+                text_lower = dialogue['text'].lower()
+                if any(text_lower.startswith(marker) for marker in interruption_markers):
+                    interruption_count += 1
+            
+            if interruption_count > len(dialogues) * 0.2:
+                patterns['dominance_tactics'].append('frequently interrupts others')
+                patterns['conversation_tactics'].append('dominates conversations')
+        
+        # Analyze respect/disrespect indicators
+        respect_patterns = {
+            'respectful': ['please', 'thank you', 'excuse me', 'pardon', 'sorry'],
+            'dismissive': ['whatever', 'who cares', 'so what', 'big deal', 'boring'],
+            'condescending': ['obviously', 'clearly', 'simple', 'basic', 'elementary'],
+            'sarcastic': ['oh really', 'sure', 'right', 'of course', 'brilliant']
+        }
+        
+        for dialogue in dialogues:
+            text_lower = dialogue['text'].lower()
+            for pattern_type, keywords in respect_patterns.items():
+                for keyword in keywords:
+                    if keyword in text_lower:
+                        if pattern_type not in patterns['respect_indicators']:
+                            patterns['respect_indicators'][pattern_type] = 0
+                        patterns['respect_indicators'][pattern_type] += 1
+        
+        # Determine dismissive behaviors
+        if patterns['respect_indicators'].get('dismissive', 0) > 3:
+            patterns['dismissive_behaviors'].append('regularly dismisses others\' concerns')
+        if patterns['respect_indicators'].get('condescending', 0) > 3:
+            patterns['dismissive_behaviors'].append('talks down to people')
+        if patterns['respect_indicators'].get('sarcastic', 0) > 5:
+            patterns['dismissive_behaviors'].append('uses sarcasm to belittle others')
+        
+        # Analyze power dynamics
+        command_words = ['must', 'will', 'shall', 'need to', 'have to', 'supposed to']
+        question_words = ['can i', 'may i', 'could you', 'would you', 'please']
+        
+        command_count = 0
+        question_count = 0
+        
+        for dialogue in dialogues:
+            text_lower = dialogue['text'].lower()
+            command_count += sum(1 for word in command_words if word in text_lower)
+            question_count += sum(1 for word in question_words if word in text_lower)
+        
+        if command_count > question_count * 2:
+            patterns['power_dynamics']['style'] = 'authoritative'
+            patterns['dominance_tactics'].append('gives orders rather than requests')
+        elif question_count > command_count * 2:
+            patterns['power_dynamics']['style'] = 'submissive'
+        else:
+            patterns['power_dynamics']['style'] = 'balanced'
+        
+        # Emotional manipulation patterns
+        emotional_patterns = [
+            (r'you\'re making me', 'blame-shifting'),
+            (r'look what you\'ve done', 'guilt-inducing'),
+            (r'i\'m disappointed in you', 'shame-inducing'),
+            (r'after everything i', 'obligation-creating'),
+            (r'you don\'t care about', 'emotional accusation'),
+            (r'if you loved me', 'love manipulation')
+        ]
+        
+        for dialogue in dialogues:
+            text_lower = dialogue['text'].lower()
+            for pattern, manipulation_type in emotional_patterns:
+                if re.search(pattern, text_lower):
+                    if manipulation_type not in patterns['emotional_manipulation']:
+                        patterns['emotional_manipulation'].append(manipulation_type)
+        
+        return patterns
     
     def _generate_character_dna(self, speech_analysis: Dict, emotional_profile: Dict,
                                behaviors: List, quirks: List, values: Dict, 
