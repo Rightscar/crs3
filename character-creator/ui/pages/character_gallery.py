@@ -426,6 +426,53 @@ def render_character_gallery():
                                 st.markdown("**Core Values:**")
                                 st.write(values['moral_code'])
                             
+                            # Motives & Behaviors
+                            motives = selected_char.get('motives_behaviors', {})
+                            if motives:
+                                st.markdown("**Hidden Motives & Behaviors:**")
+                                
+                                # Primary motivations
+                                if motives.get('primary_motivations'):
+                                    st.write(f"🎯 Driven by: {', '.join(motives['primary_motivations'])}")
+                                
+                                # Behavioral traits
+                                if motives.get('behavioral_traits'):
+                                    traits = list(motives['behavioral_traits'].keys())
+                                    if traits:
+                                        st.write(f"⚡ Traits: {', '.join(traits[:3])}")
+                                
+                                # Manipulation tactics
+                                if motives.get('manipulation_tactics'):
+                                    st.write(f"🎭 Uses: {', '.join(motives['manipulation_tactics'][:2])}")
+                                
+                                # Empathy level
+                                empathy = motives.get('empathy_level', 0.5)
+                                if empathy < 0.3:
+                                    st.write("❄️ Very low empathy")
+                                elif empathy > 0.7:
+                                    st.write("💖 High empathy despite flaws")
+                            
+                            # Interaction Patterns
+                            interactions = selected_char.get('interaction_patterns', {})
+                            if interactions:
+                                st.markdown("**How They Treat Others:**")
+                                
+                                if interactions.get('default_stance'):
+                                    st.write(f"💬 {interactions['default_stance'].capitalize()} in conversations")
+                                
+                                if interactions.get('dismissive_behaviors'):
+                                    for behavior in interactions['dismissive_behaviors'][:2]:
+                                        st.write(f"⚠️ {behavior}")
+                                
+                                if interactions.get('emotional_manipulation'):
+                                    st.write(f"🎪 Emotional tactics: {', '.join(interactions['emotional_manipulation'][:2])}")
+                            
+                            # Engagement Warning
+                            if motives.get('aggression_style') == 'actively hostile' or \
+                               motives.get('ego_indicators', 0) > 0.7 or \
+                               len(motives.get('manipulation_tactics', [])) > 2:
+                                st.warning("⚡ **High Intensity Character** - Expect dramatic interactions!")
+                            
                             if selected_char['key_quotes']:
                                 st.markdown("**Signature Quotes:**")
                                 for quote in selected_char['key_quotes'][:2]:

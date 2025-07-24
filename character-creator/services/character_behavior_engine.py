@@ -10,6 +10,7 @@ from typing import Dict, List, Any, Optional
 from datetime import datetime
 
 from config.logging_config import logger
+from .dopamine_engine import DopamineEngine
 
 class CharacterBehaviorEngine:
     """Engine to maintain character's authentic behavior in conversations"""
@@ -31,6 +32,9 @@ class CharacterBehaviorEngine:
             'dominance_attempts': 0,     # Times tried to dominate conversation
             'mood': self._determine_default_mood()
         }
+        
+        # Initialize dopamine engine
+        self.dopamine_engine = DopamineEngine()
     
     def process_user_input(self, user_message: str) -> Dict[str, Any]:
         """Process user input and determine character's reaction"""
@@ -46,9 +50,27 @@ class CharacterBehaviorEngine:
         
         return analysis
     
-    def generate_response_modifiers(self, base_response: str, user_analysis: Dict) -> str:
+    def generate_response_modifiers(self, base_response: str, user_analysis: Dict, 
+                                  response_time: float = 10.0) -> str:
         """Modify response based on character's personality and current state"""
-        modified_response = base_response
+        # First, get dopamine optimization strategy
+        dopamine_analysis = self.dopamine_engine.analyze_user_message(
+            user_analysis.get('original_message', ''), 
+            response_time
+        )
+        
+        dopamine_strategy = self.dopamine_engine.select_optimal_response_strategy(
+            self.profile,
+            dopamine_analysis
+        )
+        
+        # Apply dopamine hooks first for maximum impact
+        modified_response = self.dopamine_engine.generate_dopamine_hooks(
+            base_response,
+            dopamine_strategy
+        )
+        
+        # Then apply character-specific modifications
         
         # Apply ego-based modifications
         if self.motives.get('ego_indicators', 0) > 0.6:
@@ -76,6 +98,11 @@ class CharacterBehaviorEngine:
         
         # Apply emotional state
         modified_response = self._apply_emotional_state(modified_response)
+        
+        # Final dopamine optimization based on intensity
+        if dopamine_strategy.get('intensity', 0) > 0.7:
+            # High intensity - make it more impactful
+            modified_response = self._amplify_response(modified_response, dopamine_strategy)
         
         return modified_response
     
@@ -370,6 +397,54 @@ class CharacterBehaviorEngine:
         
         return response
     
+    def _amplify_response(self, response: str, strategy: Dict) -> str:
+        """Amplify response for high dopamine impact"""
+        amplifiers = {
+            'conflict': [
+                "Listen carefully because I won't repeat this: ",
+                "You want the truth? ",
+                "Fine. You asked for it. ",
+            ],
+            'flirtation': [
+                "*leans in closer* ",
+                "*eyes lock with yours* ",
+                "*voice drops to a whisper* ",
+            ],
+            'vulnerability': [
+                "*looks away* ",
+                "*voice cracks slightly* ",
+                "*long pause* ",
+            ],
+            'mystery': [
+                "*glances around nervously* ",
+                "*lowers voice* ",
+                "*hesitates* ",
+            ]
+        }
+        
+        # Get appropriate amplifier
+        hooks = strategy.get('hooks', [])
+        if hooks:
+            hook_type = hooks[0]
+            if hook_type in amplifiers:
+                amplifier = random.choice(amplifiers[hook_type])
+                response = amplifier + response
+        
+        # Add intensity markers
+        if strategy.get('intensity', 0) > 0.8:
+            # Make it feel more intense
+            response = response.replace('.', '...')
+            response = response.replace('?', '...?')
+            
+            # Add dramatic pause
+            if len(response) > 50:
+                mid = len(response) // 2
+                space_index = response.find(' ', mid)
+                if space_index != -1:
+                    response = response[:space_index] + '...' + response[space_index:]
+        
+        return response
+    
     def get_behavioral_instruction(self) -> str:
         """Get instruction for LLM on how to behave as this character"""
         instructions = []
@@ -432,5 +507,8 @@ class CharacterBehaviorEngine:
             instructions.append("You have very low empathy. You don't care about others' feelings.")
         elif empathy > 0.7:
             instructions.append("Despite your flaws, you do care about others' wellbeing.")
+        
+        # Add dopamine optimization instructions
+        instructions.append("\n" + self.dopamine_engine.get_engagement_instructions())
         
         return "\n".join(instructions)
