@@ -9,6 +9,7 @@ import streamlit as st
 from pathlib import Path
 from ui.pages.character_gallery import render_character_gallery
 from ui.pages.character_chat import render_character_chat
+from ui.pages.character_creation import render_character_creation
 
 def render_app():
     """Render the main application"""
@@ -25,7 +26,7 @@ def render_app():
     if current_page == 'home':
         render_home_page()
     elif current_page == 'create':
-        st.info("🚧 Character creation page coming in Phase 2!")
+        render_character_creation()
     elif current_page == 'chat':
         render_character_chat()
     elif current_page == 'gallery':

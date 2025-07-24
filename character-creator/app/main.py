@@ -17,9 +17,9 @@ from config.logging_config import logger
 from core.exceptions import CharacterCreatorError, handle_error
 from ui.layouts.app_layout import render_app
 
-# Import test data
-sys.path.insert(0, str(Path(__file__).parent.parent))
-import test_data
+# Import test data (optional - uncomment to load test characters)
+# sys.path.insert(0, str(Path(__file__).parent.parent))
+# import test_data
 
 # Page configuration
 st.set_page_config(

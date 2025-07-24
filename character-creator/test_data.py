@@ -207,6 +207,7 @@ def load_test_characters():
     return test_characters
 
 
-# Auto-load test data when imported
-if 'extracted_characters' not in st.session_state:
-    load_test_characters()
+# Auto-load test data when imported (disabled by default)
+# Uncomment the lines below to auto-load test data
+# if 'extracted_characters' not in st.session_state:
+#     load_test_characters()
