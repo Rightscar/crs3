@@ -283,6 +283,39 @@ class DatabaseManager:
             logger.error(f"Error searching characters: {e}")
             return []
     
+    def update_character(self, character_id: str, updates: Dict[str, Any]) -> bool:
+        """Update character data"""
+        try:
+            with self.get_connection() as conn:
+                cursor = conn.cursor()
+                
+                # Get existing character
+                cursor.execute("""
+                    SELECT data FROM characters WHERE id = ?
+                """, (character_id,))
+                
+                row = cursor.fetchone()
+                if not row:
+                    return False
+                
+                # Update fields
+                character_dict = json.loads(row['data'])
+                character_dict.update(updates)
+                character_dict['updated_at'] = datetime.now().isoformat()
+                
+                cursor.execute("""
+                    UPDATE characters 
+                    SET data = ?, updated_at = CURRENT_TIMESTAMP
+                    WHERE id = ?
+                """, (json.dumps(character_dict), character_id))
+                
+                logger.info(f"Updated character: {character_id}")
+                return True
+                
+        except Exception as e:
+            logger.error(f"Error updating character: {e}")
+            return False
+    
     def delete_character(self, character_id: str) -> bool:
         """Delete a character and all related data"""
         try:

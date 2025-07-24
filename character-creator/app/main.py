@@ -15,6 +15,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from config.settings import settings
 from config.logging_config import logger
 from core.exceptions import CharacterCreatorError, handle_error
+from core.auth import auth_manager
 from ui.layouts.app_layout import render_app
 
 # Import test data (optional - uncomment to load test characters)
@@ -63,6 +64,9 @@ def main():
         
         # Validate configuration
         settings.validate()
+        
+        # Check authentication
+        auth_manager.require_auth()
         
         # Render main application
         render_app()
