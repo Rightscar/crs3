@@ -55,6 +55,12 @@ except ImportError as e:
     st.stop()
 
 # Import new components
+
+    from components.hamburger_menu import get_hamburger_menu, get_context_sidebar
+    from components.progressive_disclosure import get_progressive_disclosure, get_feature_hints
+    from components.toast_notifications import toast_success, toast_error, toast_info, get_toast_system
+    from components.skeleton_loaders import LoadingContext, get_skeleton_loader
+    from components.accessibility_enhancements import get_accessibility_enhancer, announce_to_screen_reader
 try:
     from components.session_state_fix import init_session_state, safe_get, safe_set, with_error_boundary
     from components.persistent_preferences import get_preferences, apply_all_preferences
@@ -133,6 +139,30 @@ try:
     processor = get_cancellable_processor()
     
     logger.info("Week 1 components initialized")
+
+
+# Initialize Week 2 components
+try:
+    # Initialize hamburger menu
+    hamburger_menu = get_hamburger_menu()
+    context_sidebar = get_context_sidebar()
+    
+    # Initialize progressive disclosure
+    disclosure = get_progressive_disclosure()
+    hints = get_feature_hints()
+    
+    # Initialize toast system
+    toast_system = get_toast_system()
+    
+    # Initialize skeleton loader
+    skeleton = get_skeleton_loader()
+    
+    # Initialize accessibility
+    accessibility = get_accessibility_enhancer()
+    
+    logger.info("Week 2 components initialized")
+except Exception as e:
+    logger.warning(f"Failed to initialize Week 2 components: {e}")
 except Exception as e:
     logger.warning(f"Failed to initialize Week 1 components: {e}")
 except Exception as e:
