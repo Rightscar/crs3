@@ -250,34 +250,28 @@ def process_document(uploaded_file, enable_ocr: bool = False):
             # Initialize processor
             processor = DocumentProcessor()
             
-            # Read file content
-            file_content = uploaded_file.read()
-            file_type = uploaded_file.name.split('.')[-1].lower()
+            # Save uploaded file temporarily
+            temp_path = Path(f"temp_{uploaded_file.name}")
+            with open(temp_path, 'wb') as f:
+                f.write(uploaded_file.read())
             
-            # Process document
+            # Process document using the document processor
             result = processor.process_document(
-                file_content,
-                file_type,
-                uploaded_file.name,
-                enable_ocr=enable_ocr
+                str(temp_path),
+                uploaded_file.name
             )
             
             if result['success']:
                 # Store in session
                 st.session_state.document_data = result
-                st.session_state.document_content = result['content']
+                st.session_state.document_content = result['text']
                 st.session_state.document_metadata = result['metadata']
+                st.session_state.document_reference = result['document_reference']
                 st.session_state.uploaded_file_name = uploaded_file.name
                 st.session_state.creation_step = 2
                 
-                # Store in database
-                doc_id = db.store_document({
-                    'filename': uploaded_file.name,
-                    'content': result['content'],
-                    'metadata': result['metadata'],
-                    'upload_time': datetime.now()
-                })
-                st.session_state.document_id = doc_id
+                # Clean up temp file
+                temp_path.unlink()
                 
                 st.success("✅ Document processed successfully!")
                 time.sleep(0.5)
