@@ -1,0 +1,46 @@
+# Character Creator Requirements
+# ==============================
+
+# Core Framework
+streamlit>=1.29.0
+streamlit-option-menu>=0.3.6
+
+# Data Processing
+pandas>=2.1.0
+numpy>=1.25.0
+python-dotenv>=1.0.0
+
+# Document Processing (reusing from existing app)
+PyMuPDF>=1.23.0
+python-docx>=0.8.11
+Pillow>=10.0.0
+pypdf>=3.17.0
+ebooklib>=0.18
+
+# NLP & AI
+openai>=1.0.0
+tiktoken>=0.5.0
+sentence-transformers>=2.2.2
+nltk>=3.8.1
+
+# Database
+# Using SQLite (built-in)
+
+# Security
+bleach>=6.1.0
+validators>=0.22.0
+
+# Utilities
+tqdm>=4.66.0
+python-dateutil>=2.8.2
+pytz>=2023.3
+
+# Testing (optional for development)
+pytest>=7.4.0
+pytest-cov>=4.1.0
+pytest-asyncio>=0.21.0
+
+# Development (optional)
+black>=23.0.0
+flake8>=6.0.0
+mypy>=1.0.0
