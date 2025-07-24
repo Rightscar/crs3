@@ -1,0 +1,424 @@
+/* 
+ * AI PDF Pro - Improved Styles
+ * ============================
+ * 
+ * Addresses:
+ * - Poor text contrast
+ * - Visual hierarchy
+ * - Smooth transitions
+ * - Accessibility
+ */
+
+/* Import clean fonts */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+/* CSS Variables for consistent theming */
+:root {
+    /* Improved color palette with better contrast */
+    --primary-bg: #0f0f23;
+    --secondary-bg: #1e1e3f;  /* Lightened from #1a1a2e */
+    --surface-bg: #252548;    /* New surface color for cards */
+    --text-primary: #f2f2f7;  /* Lightened for better contrast */
+    --text-secondary: #a8a8b3;
+    --text-muted: #6b6b7d;
+    --accent-primary: #407BFF;
+    --accent-secondary: #5A8BFF;
+    --accent-hover: #6B9BFF;
+    
+    /* Status colors */
+    --success: #4CAF50;
+    --warning: #FF9800;
+    --error: #F44336;
+    --info: #2196F3;
+    
+    /* Spacing system */
+    --spacing-xs: 0.25rem;
+    --spacing-sm: 0.5rem;
+    --spacing-md: 1rem;
+    --spacing-lg: 1.5rem;
+    --spacing-xl: 2rem;
+    --spacing-2xl: 3rem;
+    
+    /* Typography scale */
+    --text-xs: 0.75rem;
+    --text-sm: 0.875rem;
+    --text-base: 1rem;
+    --text-lg: 1.125rem;
+    --text-xl: 1.25rem;
+    --text-2xl: 1.5rem;
+    --text-3xl: 2rem;
+    
+    /* Transitions */
+    --transition-fast: 0.15s ease;
+    --transition-normal: 0.3s ease;
+    --transition-slow: 0.6s ease;
+    
+    /* Shadows */
+    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.12);
+    --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.16);
+    --shadow-lg: 0 10px 20px rgba(0, 0, 0, 0.19);
+    --shadow-xl: 0 15px 30px rgba(0, 0, 0, 0.25);
+    
+    /* Border radius */
+    --radius-sm: 4px;
+    --radius-md: 8px;
+    --radius-lg: 12px;
+    --radius-xl: 16px;
+    --radius-full: 9999px;
+    
+    /* Panel widths */
+    --nav-panel-width: 320px;
+    --nav-panel-collapsed: 60px;
+    --processor-panel-width: 380px;
+    --processor-panel-collapsed: 60px;
+}
+
+/* Base styles */
+* {
+    box-sizing: border-box;
+}
+
+body, .stApp {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    color: var(--text-primary);
+    background: var(--primary-bg);
+    line-height: 1.6;
+    font-size: var(--text-base);
+}
+
+/* Typography with clear hierarchy */
+h1, h2, h3, h4, h5, h6 {
+    font-weight: 600;
+    line-height: 1.2;
+    margin-top: 0;
+    margin-bottom: var(--spacing-md);
+    color: var(--text-primary);
+}
+
+h1 { 
+    font-size: var(--text-3xl); 
+    font-weight: 700;
+}
+
+h2 { 
+    font-size: var(--text-2xl); 
+    font-weight: 600;
+}
+
+h3 { 
+    font-size: var(--text-xl); 
+    font-weight: 600;
+}
+
+p {
+    margin-bottom: var(--spacing-md);
+    color: var(--text-primary);
+}
+
+/* Improved Streamlit component styling */
+.stButton > button {
+    font-family: inherit;
+    font-weight: 500;
+    font-size: var(--text-base);
+    padding: var(--spacing-sm) var(--spacing-lg);
+    border-radius: var(--radius-md);
+    transition: all var(--transition-normal);
+    border: 1px solid transparent;
+    cursor: pointer;
+    background: var(--accent-primary);
+    color: white;
+}
+
+.stButton > button:hover {
+    background: var(--accent-secondary);
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-md);
+}
+
+.stButton > button:active {
+    transform: translateY(0);
+}
+
+/* Text inputs with better contrast */
+.stTextInput > div > div > input,
+.stSelectbox > div > div > select,
+.stTextArea > div > div > textarea {
+    background: var(--surface-bg);
+    color: var(--text-primary);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: var(--radius-md);
+    padding: var(--spacing-sm) var(--spacing-md);
+    font-size: var(--text-base);
+    transition: all var(--transition-fast);
+}
+
+.stTextInput > div > div > input:focus,
+.stSelectbox > div > div > select:focus,
+.stTextArea > div > div > textarea:focus {
+    border-color: var(--accent-primary);
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(64, 123, 255, 0.2);
+}
+
+/* Labels with proper contrast */
+.stTextInput label,
+.stSelectbox label,
+.stTextArea label,
+.stCheckbox label,
+.stRadio label {
+    color: var(--text-primary) !important;
+    font-weight: 500;
+    font-size: var(--text-sm);
+    margin-bottom: var(--spacing-xs);
+}
+
+/* Panel styling with smooth transitions */
+.nav-panel,
+.processor-panel {
+    background: var(--secondary-bg);
+    transition: width var(--transition-normal) cubic-bezier(0.4, 0, 0.2, 1),
+                opacity var(--transition-normal),
+                transform var(--transition-normal);
+    overflow: hidden;
+    position: relative;
+}
+
+.nav-panel {
+    width: var(--nav-panel-width);
+    border-right: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.nav-panel.collapsed {
+    width: var(--nav-panel-collapsed);
+}
+
+.processor-panel {
+    width: var(--processor-panel-width);
+    border-left: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.processor-panel.collapsed {
+    width: var(--processor-panel-collapsed);
+}
+
+/* Panel content fade */
+.panel-content {
+    opacity: 1;
+    transform: scale(1);
+    transition: opacity var(--transition-fast),
+                transform var(--transition-fast);
+}
+
+.collapsed .panel-content {
+    opacity: 0;
+    transform: scale(0.95);
+    pointer-events: none;
+}
+
+/* Reader panel */
+.reader-panel {
+    flex: 1;
+    background: var(--primary-bg);
+    padding: var(--spacing-xl);
+    overflow-y: auto;
+}
+
+/* Document container */
+.document-container {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: var(--spacing-xl);
+    background: white;
+    box-shadow: var(--shadow-lg);
+    border-radius: var(--radius-lg);
+    color: black;
+    min-height: 600px;
+}
+
+/* Cards and surfaces */
+.card {
+    background: var(--surface-bg);
+    border-radius: var(--radius-lg);
+    padding: var(--spacing-lg);
+    margin-bottom: var(--spacing-md);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    transition: all var(--transition-normal);
+}
+
+.card:hover {
+    border-color: rgba(255, 255, 255, 0.1);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+}
+
+/* Status badges with better visibility */
+.badge {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border-radius: var(--radius-sm);
+    font-size: var(--text-sm);
+    font-weight: 500;
+    border: 2px solid transparent;
+}
+
+.badge-success {
+    background: var(--success);
+    color: white;
+}
+
+.badge-warning {
+    background: var(--warning);
+    color: black;
+}
+
+.badge-error {
+    background: var(--error);
+    color: white;
+}
+
+.badge-info {
+    background: var(--info);
+    color: white;
+}
+
+/* High contrast mode */
+.high-contrast {
+    --text-primary: #ffffff;
+    --text-secondary: #e0e0e0;
+    --secondary-bg: #000000;
+    --surface-bg: #1a1a1a;
+}
+
+.high-contrast * {
+    border-width: 2px !important;
+}
+
+/* Color-blind friendly indicators */
+.badge-success::after { content: " ✓"; }
+.badge-warning::after { content: " !"; }
+.badge-error::after { content: " ✕"; }
+.badge-info::after { content: " i"; }
+
+/* Animations toggle */
+.animations-enabled * {
+    transition: all var(--transition-normal) !important;
+}
+
+.animations-disabled * {
+    transition: none !important;
+}
+
+/* Focus indicators for accessibility */
+*:focus {
+    outline: none;
+}
+
+*:focus-visible {
+    outline: 2px solid var(--accent-primary);
+    outline-offset: 2px;
+}
+
+/* Skip link for accessibility */
+.skip-link {
+    position: absolute;
+    top: -40px;
+    left: 0;
+    background: var(--accent-primary);
+    color: white;
+    padding: var(--spacing-sm) var(--spacing-md);
+    text-decoration: none;
+    border-radius: var(--radius-sm);
+    z-index: 100;
+}
+
+.skip-link:focus {
+    top: 0;
+}
+
+/* Utility classes */
+.visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+/* Loading states */
+.skeleton {
+    background: linear-gradient(90deg, var(--surface-bg) 25%, rgba(255, 255, 255, 0.1) 50%, var(--surface-bg) 75%);
+    background-size: 200% 100%;
+    animation: loading 1.5s infinite;
+}
+
+@keyframes loading {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+
+/* Mobile responsive */
+@media (max-width: 768px) {
+    :root {
+        --text-base: 0.875rem;
+    }
+    
+    .nav-panel,
+    .processor-panel {
+        position: fixed;
+        height: 100vh;
+        z-index: 1000;
+        box-shadow: var(--shadow-xl);
+    }
+    
+    .nav-panel {
+        left: 0;
+        transform: translateX(-100%);
+    }
+    
+    .nav-panel.expanded {
+        transform: translateX(0);
+    }
+    
+    .processor-panel {
+        right: 0;
+        transform: translateX(100%);
+    }
+    
+    .processor-panel.expanded {
+        transform: translateX(0);
+    }
+    
+    .reader-panel {
+        padding: var(--spacing-md);
+    }
+    
+    .document-container {
+        padding: var(--spacing-md);
+        border-radius: var(--radius-md);
+    }
+}
+
+/* Print styles */
+@media print {
+    .nav-panel,
+    .processor-panel,
+    .stButton,
+    .no-print {
+        display: none !important;
+    }
+    
+    .reader-panel {
+        padding: 0;
+    }
+    
+    .document-container {
+        box-shadow: none;
+        border-radius: 0;
+    }
+}

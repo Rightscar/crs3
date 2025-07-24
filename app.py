@@ -32,6 +32,10 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+# Apply emergency CSS fixes
+st.markdown(open('styles/emergency_fixes.css').read(), unsafe_allow_html=True)
+
+
 # Import our modules
 try:
     from modules.universal_document_reader import UniversalDocumentReader, DocumentMetadata, DocumentPage
@@ -49,6 +53,21 @@ try:
 except ImportError as e:
     st.error(f"❌ Module import error: {e}")
     st.stop()
+
+# Import new components
+try:
+    from components.session_state_fix import init_session_state, safe_get, safe_set, with_error_boundary
+    from components.persistent_preferences import get_preferences, apply_all_preferences
+except ImportError:
+    # Fallback if new components not available
+    def init_session_state():
+        ensure_session_state()
+    def safe_get(key, default=None):
+        return st.session_state.get(key, default)
+    def safe_set(key, value):
+        st.session_state[key] = value
+    def with_error_boundary(func):
+        return func
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -85,18 +104,30 @@ def ensure_session_state():
                 # Fallback for any edge cases
                 setattr(st.session_state, key, default_value)
 
-# Call immediately to prevent any access before initialization
-ensure_session_state()
+# Initialize session state with new robust manager
+init_session_state()
 logger = logging.getLogger(__name__)
+
+# Apply saved preferences on startup
+try:
+    apply_all_preferences()
+except Exception as e:
+    logger.warning(f"Failed to apply preferences: {e}")
 
 # Load environment variables
 from dotenv import load_dotenv
 load_dotenv()
 
-# Custom CSS for three-panel layout
-st.markdown("""
+# Load improved CSS
+try:
+    with open('styles/improved_styles.css', 'r') as f:
+        improved_css = f.read()
+        st.markdown(f"<style>{improved_css}</style>", unsafe_allow_html=True)
+except FileNotFoundError:
+    # Fallback to inline CSS
+    st.markdown("""
 <style>
-    @import url("https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap");
+    @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");
     
     .main { 
         font-family: "Roboto", "Inter", sans-serif; 

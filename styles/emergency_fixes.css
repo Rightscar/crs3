@@ -1,0 +1,52 @@
+
+/* Emergency CSS fixes for better contrast and readability */
+<style>
+/* Improved text contrast */
+.stApp {
+    color: #f2f2f7 !important;
+}
+
+/* Fix secondary background */
+.css-1d391kg, [data-testid="stSidebar"] {
+    background-color: #1e1e3f !important;
+}
+
+/* Better input contrast */
+.stTextInput input, .stSelectbox select, .stTextArea textarea {
+    background-color: #252548 !important;
+    color: #f2f2f7 !important;
+    border: 1px solid rgba(255, 255, 255, 0.1) !important;
+}
+
+/* Fix label contrast */
+label {
+    color: #f2f2f7 !important;
+}
+
+/* Panel toggle button fix */
+.panel-toggle {
+    right: 0 !important;
+    width: 44px !important;
+    height: 44px !important;
+}
+
+/* Reduce emoji overload */
+.stButton > button {
+    font-family: Inter, -apple-system, sans-serif !important;
+    font-weight: 500 !important;
+}
+
+/* Animation toggle */
+.animations-disabled * {
+    transition: none !important;
+}
+
+/* Mobile improvements */
+@media (max-width: 768px) {
+    .nav-panel, .processor-panel {
+        position: fixed !important;
+        z-index: 1000 !important;
+        height: 100vh !important;
+    }
+}
+</style>
