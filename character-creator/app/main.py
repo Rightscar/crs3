@@ -12,6 +12,9 @@ from pathlib import Path
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+# Import our safe session state wrapper
+from fixes.fix_session_state import SafeSessionState
+
 from config.settings import settings
 from config.logging_config import logger
 from core.exceptions import CharacterCreatorError, handle_error
@@ -33,28 +36,31 @@ st.set_page_config(
 def initialize_session_state():
     """Initialize session state variables"""
     
+    # Use safe session state wrapper
+    safe_state = SafeSessionState(st.session_state)
+    
     # App state
-    if 'initialized' not in st.session_state:
-        st.session_state.initialized = True
-        st.session_state.current_page = 'home'
-        st.session_state.current_character_id = None
-        st.session_state.uploaded_document = None
-        st.session_state.character_draft = None
+    if not safe_state.get('initialized', False):
+        safe_state.set('initialized', True)
+        safe_state.set('current_page', 'home')
+        safe_state.set('current_character_id', None)
+        safe_state.set('uploaded_document', None)
+        safe_state.set('character_draft', None)
         
         # UI state
-        st.session_state.show_sidebar = True
-        st.session_state.theme = settings.ui.theme
+        safe_state.set('show_sidebar', True)
+        safe_state.set('theme', settings.ui.theme)
         
         # Character creation state
-        st.session_state.creation_step = 1
-        st.session_state.document_processed = False
-        st.session_state.character_config = {}
+        safe_state.set('creation_step', 1)
+        safe_state.set('document_processed', False)
+        safe_state.set('character_config', {})
         
         # Chat state
-        st.session_state.chat_messages = []
-        st.session_state.chat_session_id = None
+        safe_state.set('chat_messages', [])
+        safe_state.set('chat_session_id', None)
         
-        logger.info("Session state initialized")
+        logger.info("Session state initialized with safe wrapper")
 
 def main():
     """Main application function"""

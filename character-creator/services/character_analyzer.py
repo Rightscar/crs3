@@ -624,8 +624,12 @@ class CharacterAnalyzer:
                 helping_count += sum(1 for keyword in helping_keywords if keyword in context_lower)
                 harming_count += sum(1 for keyword in harming_keywords if keyword in context_lower)
         
-        if helping_count + harming_count > 0:
-            motives['empathy_level'] = helping_count / (helping_count + harming_count)
+        # Fix: Prevent division by zero
+        total_count = helping_count + harming_count
+        if total_count > 0:
+            motives['empathy_level'] = helping_count / total_count
+        else:
+            motives['empathy_level'] = 0.5  # Default neutral empathy
         
         return motives
     

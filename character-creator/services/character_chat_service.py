@@ -2,7 +2,7 @@
 Character Chat Service
 ======================
 
-Integrates all character systems for authentic, engaging conversations.
+Manages character chat interactions with emotional intelligence and dopamine mechanics.
 """
 
 import time
@@ -10,11 +10,15 @@ from typing import Dict, List, Any, Optional, Tuple
 from datetime import datetime
 import json
 
+# Import RAG integration
+from fixes.fix_rag_integration import RAGSystem
+
 from config.settings import settings
 from config.logging_config import logger
 from core.models import Character, ConversationTurn
 from core.exceptions import CharacterCreationError
 from core.rate_limiter import rate_limiter
+from core.database import Database
 
 from .character_behavior_engine import CharacterBehaviorEngine
 from .emotional_memory_core import EmotionalMemoryCore
