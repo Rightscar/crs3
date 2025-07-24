@@ -42,6 +42,8 @@ try:
     from modules.analytics_dashboard import AnalyticsDashboard
     from modules.session_persistence import SessionPersistence, get_session_persistence, initialize_persistent_session
     from modules.ui_state_manager import UIStateManager, get_ui_state_manager
+    from modules.realtime_ai_processor import RealtimeAIProcessor, get_realtime_ai_processor
+    from modules.ai_chat_interface import AIChatInterface, get_ai_chat_interface
     MODULES_AVAILABLE = True
 except ImportError as e:
     st.error(f"❌ Module import error: {e}")
@@ -567,6 +569,8 @@ class UniversalDocumentReaderApp:
         self.analytics = AnalyticsDashboard()
         self.persistence = get_session_persistence()
         self.ui_state = get_ui_state_manager()
+        self.realtime_ai = get_realtime_ai_processor()
+        self.ai_chat = get_ai_chat_interface()
         
         self._initialize_session_state()
         self._initialize_database_session()
@@ -1421,35 +1425,64 @@ class UniversalDocumentReaderApp:
                         use_container_width=True
                     )
                 
-                # Display text content
+                # Display text content with real-time AI analysis
                 if page_data.text_content:
-                    with st.expander("📝 Page Text", expanded=False):
-                        st.text_area(
-                            "Page content",
-                            value=page_data.text_content,
-                            height=300,
-                            disabled=True,
-                            key="page_text_display"
-                        )
+                    with st.expander("📝 Page Text with AI Analysis", expanded=True):
+                        # Real-time AI processing toggle
+                        col_toggle1, col_toggle2, col_toggle3 = st.columns(3)
+                        
+                        with col_toggle1:
+                            enable_grammar = st.checkbox("✅ Grammar Check", value=True, 
+                                                       help="Real-time grammar checking with green highlights")
+                        with col_toggle2:
+                            enable_emotion = st.checkbox("😊 Emotion Analysis", value=True,
+                                                       help="Color-coded emotion analysis")
+                        with col_toggle3:
+                            enable_insights = st.checkbox("💡 AI Insights", value=True,
+                                                        help="Real-time content suggestions")
+                        
+                        # Process text with real-time AI
+                        if enable_grammar or enable_emotion or enable_insights:
+                            ai_results = self.realtime_ai.process_text_realtime(
+                                page_data.text_content,
+                                enable_grammar=enable_grammar,
+                                enable_emotion=enable_emotion,
+                                enable_insights=enable_insights
+                            )
+                            
+                            if ai_results:
+                                self._display_ai_enhanced_text(page_data.text_content, ai_results)
+                        else:
+                            # Simple text display
+                            st.text_area(
+                                "Page content",
+                                value=page_data.text_content,
+                                height=300,
+                                disabled=True,
+                                key="page_text_display"
+                            )
                     
-                    # Text selection simulation
-                    st.markdown("**💡 Text Selection:**")
+                    # Enhanced text selection with AI processing
+                    st.markdown("**💡 Interactive Text Analysis:**")
                     selected_text = st.text_area(
-                        "Select text to process (copy and paste from above)",
+                        "Select text for detailed AI analysis",
                         height=100,
                         key="selected_text_input",
-                        placeholder="Copy text from the page above to process it..."
+                        placeholder="Copy text from the page above for detailed AI analysis..."
                     )
                     
                     if selected_text != st.session_state.selected_text:
                         st.session_state.selected_text = selected_text
                     
                     if selected_text:
-                        col1, col2 = st.columns(2)
+                        col1, col2, col3 = st.columns(3)
                         with col1:
-                            if st.button("🧠 Process Selection", type="primary"):
-                                self._process_selected_text(selected_text)
+                            if st.button("🧠 AI Analysis", type="primary"):
+                                self._process_selected_text_enhanced(selected_text)
                         with col2:
+                            if st.button("🎯 Grammar Check"):
+                                self._show_grammar_analysis(selected_text)
+                        with col3:
                             if st.button("📋 Clear Selection"):
                                 st.session_state.selected_text = ""
                                 st.rerun()
@@ -1487,13 +1520,37 @@ class UniversalDocumentReaderApp:
         
         st.markdown("### 🧠 AI Processor")
         
-        # Processing mode selection
-        mode = st.selectbox(
-            "Processing Mode",
-            ["Keyword Analysis", "Context Extraction", "Q&A Generation", "Summary Creation", "Entity Extraction", "Theme Analysis", "Structure Analysis", "Content Insights"],
-            key="processing_mode_select"
-        )
-        st.session_state.current_processing_mode = mode
+        # AI Processing Tabs
+        tab1, tab2 = st.tabs(["🔬 Analysis", "💬 AI Chat"])
+        
+        with tab1:
+            # Processing mode selection
+            mode = st.selectbox(
+                "Processing Mode",
+                ["Keyword Analysis", "Context Extraction", "Q&A Generation", "Summary Creation", "Entity Extraction", "Theme Analysis", "Structure Analysis", "Content Insights"],
+                key="processing_mode_select"
+            )
+            st.session_state.current_processing_mode = mode
+            
+            # Real-time AI toggle
+            st.markdown("**⚡ Real-time AI Features:**")
+            col_rt1, col_rt2 = st.columns(2)
+            
+            with col_rt1:
+                realtime_grammar = st.checkbox("✅ Live Grammar", value=False, 
+                                             help="Real-time grammar checking")
+                realtime_emotion = st.checkbox("😊 Live Emotion", value=False,
+                                             help="Real-time emotion analysis")
+            
+            with col_rt2:
+                realtime_insights = st.checkbox("💡 Live Insights", value=False,
+                                               help="Real-time AI suggestions")
+                ai_confidence_threshold = st.slider("AI Confidence", 0.1, 1.0, 0.7,
+                                                   help="Minimum confidence for AI suggestions")
+        
+        with tab2:
+            # AI Chat Interface
+            self._render_ai_chat_interface()
         
         # Mode-specific inputs
         with st.expander("⚙️ Processing Settings", expanded=True):
@@ -1675,30 +1732,210 @@ class UniversalDocumentReaderApp:
                 confidence_avg=confidence_avg
             )
     
-    def _process_selected_text(self, selected_text: str):
-        """Process selected text"""
+    def _display_ai_enhanced_text(self, text: str, ai_results: dict):
+        """Display text with AI enhancements (grammar, emotion, insights)"""
+        try:
+            # Create enhanced text display
+            enhanced_html = self._create_enhanced_text_html(text, ai_results)
+            
+            # Display enhanced text
+            st.markdown(enhanced_html, unsafe_allow_html=True)
+            
+            # Display AI insights if available
+            if 'ai_insights' in ai_results and ai_results['ai_insights']:
+                st.markdown("#### 🤖 AI Insights")
+                for insight in ai_results['ai_insights'][:3]:  # Show top 3 insights
+                    confidence_color = "🟢" if insight.confidence > 0.8 else "🟡" if insight.confidence > 0.6 else "🔴"
+                    
+                    with st.container():
+                        st.markdown(f"""
+                        <div class="processing-result">
+                            <strong>{confidence_color} {insight.title}</strong><br>
+                            <small>{insight.description}</small><br>
+                            💡 <em>{insight.suggestion}</em>
+                        </div>
+                        """, unsafe_allow_html=True)
+                        
+                        if insight.actionable and st.button(f"Apply Suggestion", key=f"apply_{insight.type}"):
+                            st.success("✅ Suggestion noted! In edit mode, this would apply the change.")
+            
+            # Display processing stats
+            if 'processing_time' in ai_results:
+                st.caption(f"⚡ Processed in {ai_results['processing_time']:.2f}s")
+            
+        except Exception as e:
+            logger.error(f"AI enhanced text display error: {e}")
+            st.text_area("Page content (fallback)", value=text, height=300, disabled=True)
+    
+    def _create_enhanced_text_html(self, text: str, ai_results: dict) -> str:
+        """Create HTML with grammar and emotion highlights"""
+        enhanced_text = text
+        
+        try:
+            # Apply emotion highlighting
+            if 'emotions' in ai_results:
+                for emotion in ai_results['emotions']:
+                    emotion_text = emotion.text
+                    color = emotion.color_code
+                    emotion_label = emotion.emotion.replace('_', ' ').title()
+                    
+                    # Create highlighted span
+                    highlighted = f'<span style="background-color: {color}20; border-left: 3px solid {color}; padding: 2px; margin: 1px;" title="Emotion: {emotion_label} ({emotion.confidence:.0%})">{emotion_text}</span>'
+                    enhanced_text = enhanced_text.replace(emotion_text, highlighted, 1)
+            
+            # Apply grammar highlighting
+            if 'grammar_issues' in ai_results:
+                for issue in ai_results['grammar_issues']:
+                    issue_text = issue.text
+                    severity_color = "#DC2626" if issue.severity == 'high' else "#F59E0B" if issue.severity == 'medium' else "#10B981"
+                    
+                    # Create grammar highlight
+                    highlighted = f'<span style="background-color: {severity_color}30; text-decoration: underline wavy {severity_color};" title="Grammar: {issue.issue_type} - {issue.suggestion}">{issue_text}</span>'
+                    enhanced_text = enhanced_text.replace(issue_text, highlighted, 1)
+            
+            # Wrap in styled container
+            return f"""
+            <div style="background: white; color: black; padding: 1rem; border-radius: 8px; line-height: 1.6; font-family: 'Roboto', sans-serif;">
+                {enhanced_text.replace('\n', '<br>')}
+            </div>
+            <div style="margin-top: 0.5rem; font-size: 0.8rem; opacity: 0.7;">
+                🔴 Negative emotion • 🔵 Positive emotion • <span style="text-decoration: underline wavy;">Grammar issues</span>
+            </div>
+            """
+            
+        except Exception as e:
+            logger.error(f"Enhanced text HTML creation error: {e}")
+            return f'<div style="background: white; color: black; padding: 1rem; border-radius: 8px;">{text.replace("\n", "<br>")}</div>'
+    
+    def _process_selected_text_enhanced(self, selected_text: str):
+        """Enhanced processing of selected text with real-time AI"""
         if not selected_text.strip():
             st.warning("No text selected")
             return
         
         try:
-            with st.spinner("Processing selected text..."):
-                results = self._process_text_with_mode(
+            # Real-time AI analysis
+            with st.spinner("🧠 Performing comprehensive AI analysis..."):
+                ai_results = self.realtime_ai.process_text_realtime(
                     selected_text,
-                    st.session_state.current_processing_mode,
-                    st.session_state.current_page
+                    enable_grammar=True,
+                    enable_emotion=True,
+                    enable_insights=True
                 )
                 
-                if results:
-                    st.session_state.processing_results.extend(results)
-                    st.success(f"Generated {len(results)} results from selection!")
-                    st.rerun()
+                if ai_results:
+                    # Display results in expander
+                    with st.expander("🔍 Detailed AI Analysis Results", expanded=True):
+                        self._display_detailed_ai_results(selected_text, ai_results)
+                        
+                        # Chat about the selection
+                        if st.button("💬 Ask AI about this text"):
+                            self._start_chat_about_selection(selected_text)
                 else:
-                    st.warning("No results generated from selection")
+                    st.warning("No AI analysis results generated")
                     
         except Exception as e:
-            logger.error(f"Selection processing error: {e}")
-            st.error(f"Failed to process selection: {str(e)}")
+            logger.error(f"Enhanced selection processing error: {e}")
+            st.error(f"AI analysis failed: {str(e)}")
+    
+    def _show_grammar_analysis(self, text: str):
+        """Show detailed grammar analysis"""
+        try:
+            grammar_issues = self.realtime_ai.check_grammar_realtime(text)
+            
+            if grammar_issues:
+                st.markdown("#### 📝 Grammar Analysis Results")
+                
+                for i, issue in enumerate(grammar_issues[:10]):  # Show top 10 issues
+                    severity_icon = "🔴" if issue.severity == 'high' else "🟡" if issue.severity == 'medium' else "🟢"
+                    
+                    col1, col2 = st.columns([3, 1])
+                    
+                    with col1:
+                        st.markdown(f"""
+                        **{severity_icon} {issue.issue_type.replace('_', ' ').title()}**
+                        
+                        Original: `{issue.text}`
+                        
+                        Suggestion: `{issue.suggestion}`
+                        """)
+                    
+                    with col2:
+                        if st.button("Apply", key=f"apply_grammar_{i}"):
+                            st.success("✅ In edit mode, this would apply the correction!")
+                
+                st.info(f"Found {len(grammar_issues)} grammar issues. Enable edit mode to apply corrections.")
+            else:
+                st.success("✅ No grammar issues detected!")
+                
+        except Exception as e:
+            logger.error(f"Grammar analysis error: {e}")
+            st.error("Grammar analysis failed")
+    
+    def _display_detailed_ai_results(self, text: str, ai_results: dict):
+        """Display comprehensive AI analysis results"""
+        
+        # Grammar Issues
+        if 'grammar_issues' in ai_results and ai_results['grammar_issues']:
+            st.markdown("##### ✅ Grammar Analysis")
+            for issue in ai_results['grammar_issues'][:5]:
+                st.markdown(f"- **{issue.issue_type}**: `{issue.text}` → `{issue.suggestion}`")
+        
+        # Emotion Analysis
+        if 'emotions' in ai_results and ai_results['emotions']:
+            st.markdown("##### 😊 Emotion Analysis")
+            emotion_summary = {}
+            for emotion in ai_results['emotions']:
+                emotion_type = emotion.emotion
+                if emotion_type not in emotion_summary:
+                    emotion_summary[emotion_type] = []
+                emotion_summary[emotion_type].append(emotion.confidence)
+            
+            for emotion_type, confidences in emotion_summary.items():
+                avg_confidence = sum(confidences) / len(confidences)
+                emotion_icon = "😊" if 'positive' in emotion_type else "😔" if 'negative' in emotion_type else "😐"
+                st.markdown(f"- {emotion_icon} **{emotion_type.replace('_', ' ').title()}**: {avg_confidence:.0%} confidence")
+        
+        # AI Insights
+        if 'ai_insights' in ai_results and ai_results['ai_insights']:
+            st.markdown("##### 💡 AI Insights")
+            for insight in ai_results['ai_insights']:
+                st.markdown(f"- **{insight.title}**: {insight.suggestion}")
+    
+    def _start_chat_about_selection(self, selected_text: str):
+        """Start AI chat about selected text"""
+        try:
+            # Initialize chat session if not exists
+            if not hasattr(st.session_state, 'chat_session_active'):
+                document_title = st.session_state.current_document.get('metadata', {}).title if st.session_state.current_document else "Current Document"
+                session_id = self.ai_chat.initialize_chat_session(
+                    document_id=st.session_state.get('current_document_id'),
+                    document_title=document_title
+                )
+                st.session_state.chat_session_active = True
+                st.session_state.chat_session_id = session_id
+            
+            # Send initial message about the selection
+            initial_message = f"I've selected this text from the document: '{selected_text[:200]}...' Can you analyze and explain this for me?"
+            
+            response = self.ai_chat.send_message(
+                initial_message,
+                document_context=selected_text,
+                current_page=st.session_state.current_page
+            )
+            
+            # Show chat interface
+            st.session_state.show_ai_chat = True
+            st.success("💬 Chat started! Check the AI Chat panel.")
+            st.rerun()
+            
+        except Exception as e:
+            logger.error(f"Chat initialization error: {e}")
+            st.error("Failed to start chat session")
+    
+    def _process_selected_text(self, selected_text: str):
+        """Legacy method - redirects to enhanced processing"""
+        self._process_selected_text_enhanced(selected_text)
     
     def _process_text_with_mode(self, text: str, mode: str, page_number: int) -> List[ProcessingResult]:
         """Process text with specified mode"""
@@ -2213,6 +2450,156 @@ class UniversalDocumentReaderApp:
     def _search_document(self, search_term: str):
         """Legacy search method for compatibility"""
         return self._text_search(search_term, False, False, 20)
+    
+    def _render_ai_chat_interface(self):
+        """Render AI chat interface in processor panel"""
+        try:
+            # Initialize chat session if needed
+            if not hasattr(st.session_state, 'chat_session_active') or not st.session_state.chat_session_active:
+                if st.button("🚀 Start AI Chat Session"):
+                    document_title = "Current Document"
+                    if st.session_state.current_document:
+                        metadata = st.session_state.current_document.get('metadata')
+                        if metadata:
+                            document_title = metadata.title or "Current Document"
+                    
+                    session_id = self.ai_chat.initialize_chat_session(
+                        document_id=st.session_state.get('current_document_id'),
+                        document_title=document_title
+                    )
+                    st.session_state.chat_session_active = True
+                    st.session_state.chat_session_id = session_id
+                    st.rerun()
+                
+                st.info("💬 Start a chat session to ask questions about your document!")
+                return
+            
+            # Chat interface
+            st.markdown("#### 💬 AI Document Assistant")
+            
+            # Chat history
+            chat_history = self.ai_chat.get_chat_history()
+            
+            # Display chat messages
+            chat_container = st.container()
+            with chat_container:
+                if chat_history:
+                    for message in chat_history[-6:]:  # Show last 6 messages
+                        if message.role == 'user':
+                            with st.chat_message("user"):
+                                st.write(message.content)
+                                if message.source_page:
+                                    st.caption(f"📄 Page {message.source_page}")
+                        
+                        elif message.role == 'assistant':
+                            with st.chat_message("assistant"):
+                                st.write(message.content)
+                                # Show confidence and context
+                                col1, col2 = st.columns([3, 1])
+                                with col1:
+                                    if message.context_used:
+                                        st.caption(f"📖 Context: {message.context_used}")
+                                with col2:
+                                    confidence_color = "🟢" if message.confidence > 0.8 else "🟡" if message.confidence > 0.6 else "🔴"
+                                    st.caption(f"{confidence_color} {message.confidence:.0%}")
+                else:
+                    st.info("👋 Hello! I'm your AI document assistant. Ask me anything about your document!")
+            
+            # Suggested questions
+            if not chat_history or len(chat_history) < 2:
+                current_page_text = ""
+                try:
+                    current_page_text = self.document_reader.extract_page_text(st.session_state.current_page)
+                except:
+                    pass
+                
+                suggestions = self.ai_chat.get_suggested_questions(current_page_text)
+                
+                st.markdown("**💡 Suggested Questions:**")
+                for i, suggestion in enumerate(suggestions[:3]):
+                    if st.button(suggestion, key=f"suggest_{i}"):
+                        self._send_chat_message(suggestion)
+                        st.rerun()
+            
+            # Chat input
+            user_input = st.text_input(
+                "Ask a question about the document:",
+                placeholder="What is this document about?",
+                key="chat_input"
+            )
+            
+            col1, col2, col3 = st.columns([2, 1, 1])
+            
+            with col1:
+                if st.button("💬 Send", type="primary", disabled=not user_input):
+                    self._send_chat_message(user_input)
+                    st.rerun()
+            
+            with col2:
+                if st.button("🧠 Analyze Page"):
+                    page_text = self.document_reader.extract_page_text(st.session_state.current_page)
+                    auto_message = f"Can you analyze page {st.session_state.current_page} of this document?"
+                    self._send_chat_message(auto_message, page_text[:1000])
+                    st.rerun()
+            
+            with col3:
+                if st.button("🗑️ Clear"):
+                    self.ai_chat.clear_chat_history()
+                    st.rerun()
+            
+            # Chat analytics
+            if len(chat_history) > 0:
+                with st.expander("📊 Chat Analytics", expanded=False):
+                    analytics = self.ai_chat.get_chat_analytics()
+                    
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        st.metric("Messages", analytics.get('total_messages', 0))
+                        st.metric("Duration", analytics.get('session_duration', '0 minutes'))
+                    
+                    with col2:
+                        st.metric("Avg Confidence", f"{analytics.get('avg_confidence', 0):.0%}")
+                        st.metric("Pages Discussed", analytics.get('pages_discussed', 0))
+                    
+                    # Export chat
+                    if st.button("📥 Export Chat"):
+                        chat_export = self.ai_chat.export_chat_session()
+                        if chat_export:
+                            st.download_button(
+                                "💾 Download Chat History",
+                                data=json.dumps(chat_export, indent=2),
+                                file_name=f"chat_session_{chat_export['session_info']['session_id']}.json",
+                                mime="application/json"
+                            )
+            
+        except Exception as e:
+            logger.error(f"AI chat interface error: {e}")
+            st.error("AI chat interface encountered an error")
+    
+    def _send_chat_message(self, message: str, context: str = ""):
+        """Send message to AI chat"""
+        try:
+            # Get current page context if not provided
+            if not context:
+                try:
+                    context = self.document_reader.extract_page_text(st.session_state.current_page)
+                except:
+                    context = ""
+            
+            # Send message
+            response = self.ai_chat.send_message(
+                message,
+                document_context=context,
+                current_page=st.session_state.current_page
+            )
+            
+            # Clear input
+            if 'chat_input' in st.session_state:
+                st.session_state.chat_input = ""
+                
+        except Exception as e:
+            logger.error(f"Send chat message error: {e}")
+            st.error("Failed to send message")
 
 def main():
     """Main application entry point"""
