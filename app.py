@@ -555,6 +555,75 @@ st.markdown("""
     .tooltip:hover::after {
         opacity: 1;
     }
+    
+    /* Workflow Header */
+    .workflow-header {
+        background: rgba(15, 15, 35, 0.95);
+        backdrop-filter: blur(15px);
+        border-bottom: 1px solid rgba(64, 123, 255, 0.2);
+        padding: 1rem 2rem;
+        position: sticky;
+        top: 0;
+        z-index: 1000;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 2rem;
+    }
+    
+    .workflow-steps {
+        display: flex;
+        gap: 2rem;
+        align-items: center;
+    }
+    
+    .step {
+        color: rgba(255, 255, 255, 0.8);
+        text-decoration: none;
+        padding: 0.5rem 1rem;
+        border-radius: 6px;
+        transition: all 0.2s ease;
+        cursor: pointer;
+    }
+    
+    .step.active {
+        color: #407BFF;
+        background: rgba(64, 123, 255, 0.1);
+    }
+    
+    .step-number {
+        font-weight: 700;
+        margin-right: 0.5rem;
+    }
+    
+    .step-label {
+        font-size: 1rem;
+        margin-right: 1rem;
+    }
+    
+    /* Selection Toolbar */
+    .selection-toolbar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0.5rem 1rem;
+        background: rgba(15, 15, 35, 0.95);
+        border-radius: 8px;
+        margin-bottom: 1rem;
+    }
+    
+    .toolbar-btn {
+        background: none;
+        border: none;
+        color: rgba(255, 255, 255, 0.8);
+        font-size: 1rem;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    }
+    
+    .toolbar-btn:hover {
+        color: #407BFF;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -2720,6 +2789,189 @@ Total Annotations: {len(st.session_state.edit_annotations)}
         except Exception as e:
             logger.error(f"Export edited document error: {e}")
             st.error("Failed to generate export")
+    
+    def render_main_interface(self):
+        """Render the main three-panel interface with workflow focus"""
+        
+        # Header with workflow steps
+        st.markdown("""
+        <div class="workflow-header">
+            <div class="workflow-steps">
+                <div class="step active" id="step-read">
+                    <span class="step-number">1</span>
+                    <span class="step-label">Read & Highlight</span>
+                </div>
+                <div class="step" id="step-chunk">
+                    <span class="step-number">2</span>
+                    <span class="step-label">Create Chunks</span>
+                </div>
+                <div class="step" id="step-ai">
+                    <span class="step-number">3</span>
+                    <span class="step-label">AI Processing</span>
+                </div>
+                <div class="step" id="step-export">
+                    <span class="step-number">4</span>
+                    <span class="step-label">Export</span>
+                </div>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # Main container with three panels
+        col1, col2, col3 = st.columns([1, 3, 1.5])
+        
+        # Left Panel - Navigation & Chunks
+        with col1:
+            if not self.ui_state.is_panel_collapsed('nav'):
+                st.markdown("### 📚 Document Navigation")
+                
+                # Chapter/Section List
+                if st.session_state.table_of_contents:
+                    st.markdown("#### Chapters")
+                    for item in st.session_state.table_of_contents:
+                        if st.button(f"📖 {item['title']}", key=f"toc_{item['page']}"):
+                            st.session_state.current_page = item['page']
+                            st.rerun()
+                
+                # Highlighted Chunks
+                st.markdown("#### 🎯 Your Chunks")
+                if st.session_state.get('content_chunks', []):
+                    for i, chunk in enumerate(st.session_state.content_chunks):
+                        with st.expander(f"Chunk {i+1}: {chunk['title'][:30]}..."):
+                            st.text(chunk['content'][:200] + "...")
+                            col_a, col_b = st.columns(2)
+                            with col_a:
+                                if st.button("✏️ Edit", key=f"edit_chunk_{i}"):
+                                    st.session_state.editing_chunk = i
+                            with col_b:
+                                if st.button("🗑️", key=f"del_chunk_{i}"):
+                                    st.session_state.content_chunks.pop(i)
+                                    st.rerun()
+                else:
+                    st.info("Highlight text to create chunks")
+        
+        # Center Panel - Main Reader/Editor
+        with col2:
+            # Reading Mode
+            if st.session_state.get('mode', 'read') == 'read':
+                self._render_document_reader()
+                
+                # Floating selection toolbar
+                st.markdown("""
+                <div class="selection-toolbar" id="selectionToolbar" style="display: none;">
+                    <button onclick="createChunk()" class="toolbar-btn">
+                        <span>✂️ Create Chunk</span>
+                    </button>
+                    <button onclick="highlightText()" class="toolbar-btn">
+                        <span>🖍️ Highlight</span>
+                    </button>
+                    <button onclick="invokeAI()" class="toolbar-btn">
+                        <span>🤖 AI Process</span>
+                    </button>
+                </div>
+                """, unsafe_allow_html=True)
+            
+            # Chunk Editor Mode
+            elif st.session_state.get('mode') == 'edit_chunk':
+                st.markdown("### ✏️ Edit Chunk")
+                chunk_idx = st.session_state.get('editing_chunk', 0)
+                if chunk_idx < len(st.session_state.content_chunks):
+                    chunk = st.session_state.content_chunks[chunk_idx]
+                    
+                    # Editable content
+                    new_content = st.text_area(
+                        "Content:",
+                        value=chunk['content'],
+                        height=400,
+                        key="chunk_editor"
+                    )
+                    
+                    # AI Assistant for rewriting
+                    st.markdown("#### 🤖 AI Rewrite Assistant")
+                    col_1, col_2 = st.columns([3, 1])
+                    with col_1:
+                        rewrite_prompt = st.text_input(
+                            "How should I rewrite this?",
+                            placeholder="Make it more formal / Simplify for 5th graders / Convert to bullet points..."
+                        )
+                    with col_2:
+                        if st.button("🪄 Rewrite", type="primary"):
+                            # Process with AI
+                            rewritten = self._ai_rewrite_chunk(new_content, rewrite_prompt)
+                            st.session_state.content_chunks[chunk_idx]['content'] = rewritten
+                            st.success("✅ Chunk rewritten!")
+                    
+                    # Save/Cancel
+                    col_a, col_b = st.columns(2)
+                    with col_a:
+                        if st.button("💾 Save Chunk", type="primary"):
+                            st.session_state.content_chunks[chunk_idx]['content'] = new_content
+                            st.session_state.mode = 'read'
+                            st.rerun()
+                    with col_b:
+                        if st.button("❌ Cancel"):
+                            st.session_state.mode = 'read'
+                            st.rerun()
+        
+        # Right Panel - AI & Export
+        with col3:
+            if not self.ui_state.is_panel_collapsed('processor'):
+                # AI Processing Section
+                st.markdown("### 🧠 AI Processing")
+                
+                # Quick AI Actions
+                if st.button("📝 Summarize Page", key="summarize_page"):
+                    self._ai_summarize_current_page()
+                
+                if st.button("💡 Extract Key Points", key="extract_points"):
+                    self._ai_extract_key_points()
+                
+                if st.button("🔄 Reformat as Training Data", key="training_data"):
+                    self._convert_to_training_data()
+                
+                # Custom AI Prompt
+                st.markdown("#### Custom AI Task")
+                custom_prompt = st.text_area(
+                    "What should AI do with selected chunks?",
+                    placeholder="Convert to Q&A pairs / Extract entities / Translate to Spanish...",
+                    height=100
+                )
+                
+                if st.button("🚀 Process Chunks", type="primary", disabled=not st.session_state.get('content_chunks')):
+                    self._process_chunks_with_ai(custom_prompt)
+                
+                # Export Section
+                st.markdown("### 📤 Export Options")
+                
+                export_format = st.selectbox(
+                    "Export Format:",
+                    [
+                        "Training Data (JSONL)",
+                        "Claude Conversation Format",
+                        "GPT Fine-tuning Format",
+                        "Q&A Pairs",
+                        "Markdown",
+                        "Plain Text",
+                        "Custom Format"
+                    ]
+                )
+                
+                if export_format == "Custom Format":
+                    template = st.text_area(
+                        "Custom Template:",
+                        placeholder="{{chunk_number}}. {{content}}\n---",
+                        height=100
+                    )
+                
+                # Stitch Options
+                st.markdown("#### Stitch Options")
+                stitch_method = st.radio(
+                    "How to combine chunks?",
+                    ["Sequential", "By Topic", "Interleaved", "Custom Order"]
+                )
+                
+                if st.button("🎯 Generate Export", type="primary"):
+                    self._generate_export(export_format, stitch_method)
 
 def main():
     """Main application entry point"""
