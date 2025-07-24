@@ -18,6 +18,7 @@ from core.exceptions import CharacterCreationError
 from .character_behavior_engine import CharacterBehaviorEngine
 from .emotional_memory_core import EmotionalMemoryCore
 from .dopamine_engine import DopamineEngine
+from .llm_service import LLMService
 
 
 class CharacterChatService:
@@ -33,6 +34,7 @@ class CharacterChatService:
             character_profile=character.to_dict()
         )
         self.emotional_memory = EmotionalMemoryCore(character.id)
+        self.llm_service = LLMService()
         
         # Track conversation state
         self.conversation_id = None
@@ -232,34 +234,14 @@ User: {user_message}
     def _generate_contextual_response(self, user_message: str, context: str) -> str:
         """Generate a contextual response based on current state"""
         mood = self.emotional_memory.emotional_state['current_mood']
-        relationship = self.emotional_memory.relationship_memory['relationship_stage']
         
-        # This is a simplified response generator
-        # In production, this would use the actual LLM with the full context
+        # Use LLM service with mood context
+        response = self.llm_service.generate_response(
+            prompt=user_message,
+            mood=mood
+        )
         
-        if mood == 'angry':
-            if relationship == 'stranger':
-                return "What do you want? I'm not in the mood for games."
-            else:
-                return "You know what? I'm still upset about earlier. We need to talk about this."
-        
-        elif mood == 'happy':
-            if relationship == 'close':
-                return "Hey you! I was just thinking about that thing you said. You always know how to make me smile."
-            else:
-                return "Oh, hello there. You caught me in a good mood today."
-        
-        elif mood == 'hurt':
-            if self.emotional_memory.relationship_memory['trust_level'] < 0.3:
-                return "I don't know why I even bother talking to you anymore."
-            else:
-                return "I... I'm trying to move past what happened, but it still stings."
-        
-        # Default response with personality
-        if self.character.personality.traits.get('agreeableness', 0.5) < 0.3:
-            return "What is it now? Make it quick."
-        else:
-            return "I hear what you're saying. Tell me more."
+        return response
     
     def _add_memory_continuity(self, response: str, memory_context: Dict) -> str:
         """Add references to shared memories and maintain continuity"""

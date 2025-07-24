@@ -478,17 +478,30 @@ def render_character_gallery():
                                 for quote in selected_char['key_quotes'][:2]:
                                     st.info(f'"{quote}"')
                     
-                    # Create AI button
-                    if st.button(
-                        f"🎭 Create AI from {selected_char['name']}", 
-                        use_container_width=True,
-                        type="primary"
-                    ):
-                        # Store selected character in session state
-                        st.session_state.selected_character_data = selected_char
-                        st.session_state.current_page = 'create'
-                        st.session_state.creation_step = 2  # Skip to customization
-                        st.rerun()
+                    # Action buttons
+                    col1, col2 = st.columns(2)
+                    
+                    with col1:
+                        if st.button(
+                            f"💬 Chat with {selected_char['name']}", 
+                            use_container_width=True,
+                            type="primary"
+                        ):
+                            # Store selected character in session state
+                            st.session_state.selected_character = selected_char
+                            st.session_state.current_page = 'chat'
+                            st.rerun()
+                    
+                    with col2:
+                        if st.button(
+                            f"🎭 Create AI from {selected_char['name']}", 
+                            use_container_width=True
+                        ):
+                            # Store selected character in session state
+                            st.session_state.selected_character_data = selected_char
+                            st.session_state.current_page = 'create'
+                            st.session_state.creation_step = 2  # Skip to customization
+                            st.rerun()
     
     else:
         st.markdown("""
