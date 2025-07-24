@@ -3,15 +3,16 @@ Advanced Character Analyzer
 ===========================
 
 Deep personality and characteristic analysis for unique character creation.
+Now uses the integration adapter for enhanced NLP capabilities.
 """
 
 import re
-import spacy
 from collections import defaultdict, Counter
 from typing import List, Dict, Any, Tuple, Optional
-import nltk
-from nltk.sentiment import SentimentIntensityAnalyzer
-from textblob import TextBlob
+
+# Use our integration adapter for NLP
+from integrations.adapters.nlp_adapter import IntelligentProcessorAdapter
+from integrations.config import integration_config
 
 from config.logging_config import logger
 from core.exceptions import DocumentProcessingError
@@ -20,21 +21,9 @@ class CharacterAnalyzer:
     """Deep character analysis for unique personality extraction"""
     
     def __init__(self):
-        """Initialize analysis tools"""
-        # Load NLP models
-        try:
-            self.nlp = spacy.load("en_core_web_sm")
-        except:
-            import subprocess
-            subprocess.run(["python", "-m", "spacy", "download", "en_core_web_sm"])
-            self.nlp = spacy.load("en_core_web_sm")
-        
-        # Initialize sentiment analyzer
-        try:
-            self.sia = SentimentIntensityAnalyzer()
-        except:
-            nltk.download('vader_lexicon')
-            self.sia = SentimentIntensityAnalyzer()
+        """Initialize analysis tools using integration adapter"""
+        # Use the intelligent processor adapter
+        self.nlp_adapter = IntelligentProcessorAdapter()
         
         # Character-specific data
         self.character_data = defaultdict(lambda: {

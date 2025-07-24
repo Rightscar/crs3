@@ -3,16 +3,16 @@ Character Extraction Service
 ============================
 
 Extract and analyze all characters from uploaded documents.
+Now uses the integration adapter for enhanced NLP capabilities.
 """
 
 import re
-import spacy
 from collections import defaultdict, Counter
 from typing import List, Dict, Any, Tuple, Optional
-import nltk
-from nltk.tokenize import sent_tokenize, word_tokenize
-from nltk.chunk import ne_chunk
-from nltk.tag import pos_tag
+
+# Use our integration adapter for NLP
+from integrations.adapters.nlp_adapter import IntelligentProcessorAdapter
+from integrations.config import integration_config
 
 from config.logging_config import logger
 from core.models import Character, PersonalityProfile
@@ -23,15 +23,9 @@ class CharacterExtractor:
     """Extract characters from documents using NLP"""
     
     def __init__(self):
-        """Initialize NLP models"""
-        try:
-            # Load spaCy model
-            self.nlp = spacy.load("en_core_web_sm")
-        except:
-            logger.warning("spaCy model not found, downloading...")
-            import subprocess
-            subprocess.run(["python", "-m", "spacy", "download", "en_core_web_sm"])
-            self.nlp = spacy.load("en_core_web_sm")
+        """Initialize NLP models using integration adapter"""
+        # Use the intelligent processor adapter
+        self.nlp_adapter = IntelligentProcessorAdapter()
         
         # Initialize character analyzer
         self.analyzer = CharacterAnalyzer()
@@ -56,22 +50,34 @@ class CharacterExtractor:
         Returns:
             List of character data
         """
-        logger.info("Starting character extraction...")
+        logger.info("Starting character extraction with enhanced NLP...")
         
-        # Process text with spaCy
-        doc = self.nlp(text)
+        # Perform comprehensive text analysis
+        nlp_analysis = self.nlp_adapter.analyze_text(text)
         
-        # Extract named entities
-        self._extract_entities(doc)
+        # Extract entities using adapter
+        entities = self.nlp_adapter.extract_entities(text)
         
-        # Extract dialogues
+        # Extract themes for character context
+        themes = self.nlp_adapter.extract_themes(text)
+        
+        # Extract dialogues using adapter
+        dialogues = self.nlp_adapter.extract_dialogue(text)
+        
+        # Process entities as characters
+        self._process_entities(entities, text)
+        
+        # Process dialogues
+        self._process_dialogues(dialogues)
+        
+        # Extract additional dialogues with patterns
         self._extract_dialogues(text)
         
-        # Extract character interactions
-        self._extract_interactions(doc)
+        # Extract character interactions from entities
+        self._extract_interactions_from_entities(entities, text)
         
         # Extract descriptions
-        self._extract_descriptions(doc)
+        self._extract_descriptions(text)
         
         # Filter and rank characters
         characters = self._filter_characters(min_mentions)
@@ -107,24 +113,37 @@ class CharacterExtractor:
         logger.info(f"Extracted {len(character_profiles)} characters with deep analysis")
         return character_profiles
     
-    def _extract_entities(self, doc):
-        """Extract named entities as potential characters"""
-        for ent in doc.ents:
-            if ent.label_ == "PERSON":
+    def _process_entities(self, entities: List[Dict[str, Any]], text: str):
+        """Process extracted entities as potential characters"""
+        for ent in entities:
+            if ent.get('type') == "PERSON":
                 # Clean character name
-                char_name = self._normalize_name(ent.text)
+                char_name = self._normalize_name(ent['text'])
                 
-                # Store mention with context
-                context = self._get_context(ent, doc)
+                # Get context around entity
+                context = self._get_entity_context(ent, text)
+                
                 self.character_mentions[char_name].append({
-                    'text': ent.text,
+                    'text': ent['text'],
                     'context': context,
-                    'start': ent.start_char,
-                    'end': ent.end_char
+                    'start': ent.get('start', 0),
+                    'end': ent.get('end', 0)
                 })
                 
                 # Store context for deep analysis
                 self.character_contexts[char_name].append(context)
+    
+    def _process_dialogues(self, dialogues: List[Dict[str, str]]):
+        """Process dialogues extracted by NLP adapter"""
+        for dialogue in dialogues:
+            speaker = dialogue.get('speaker', 'Unknown')
+            if speaker != 'Unknown':
+                speaker = self._normalize_name(speaker)
+                self.character_dialogues[speaker].append({
+                    'text': dialogue['text'],
+                    'verb': 'said',
+                    'context': dialogue.get('context', '')
+                })
     
     def _extract_dialogues(self, text: str):
         """Extract character dialogues"""
@@ -159,17 +178,27 @@ class CharacterExtractor:
                         'verb': pattern.split('\\s+')[2] if '\\s+' in pattern else 'said'
                     })
     
-    def _extract_interactions(self, doc):
-        """Extract character interactions and relationships"""
-        for sent in doc.sents:
-            persons = [ent for ent in sent.ents if ent.label_ == "PERSON"]
+    def _extract_interactions_from_entities(self, entities: List[Dict[str, Any]], text: str):
+        """Extract character interactions and relationships from entities"""
+        # Group entities by sentence
+        sentences = text.split('.')
+        
+        for sentence in sentences:
+            # Find all person entities in this sentence
+            persons_in_sentence = []
             
-            if len(persons) >= 2:
+            for ent in entities:
+                if ent.get('type') == "PERSON":
+                    # Check if entity appears in this sentence
+                    if ent['text'] in sentence:
+                        persons_in_sentence.append(ent)
+            
+            if len(persons_in_sentence) >= 2:
                 # Extract relationships between characters
-                for i, person1 in enumerate(persons):
-                    for person2 in persons[i+1:]:
-                        char1 = self._normalize_name(person1.text)
-                        char2 = self._normalize_name(person2.text)
+                for i, person1 in enumerate(persons_in_sentence):
+                    for person2 in persons_in_sentence[i+1:]:
+                        char1 = self._normalize_name(person1['text'])
+                        char2 = self._normalize_name(person2['text'])
                         
                         # Increment interaction count
                         self.character_relationships[char1][char2] += 1
@@ -177,11 +206,11 @@ class CharacterExtractor:
                         
                         # Store interaction context
                         self.character_actions[char1].append({
-                            'action': sent.text,
+                            'action': sentence.strip(),
                             'with': char2
                         })
     
-    def _extract_descriptions(self, doc):
+    def _extract_descriptions(self, text: str):
         """Extract character descriptions"""
         description_patterns = [
             r'(\w+)\s+was\s+(?:a|an)\s+([^.]+)',
@@ -191,7 +220,7 @@ class CharacterExtractor:
         ]
         
         for pattern in description_patterns:
-            matches = re.finditer(pattern, doc.text, re.IGNORECASE)
+            matches = re.finditer(pattern, text, re.IGNORECASE)
             for match in matches:
                 char_name = self._normalize_name(match.group(1))
                 description = match.group(2)
@@ -210,11 +239,11 @@ class CharacterExtractor:
         # Capitalize properly
         return ' '.join(word.capitalize() for word in name.split())
     
-    def _get_context(self, entity, doc, window=50):
+    def _get_entity_context(self, entity: Dict[str, Any], text: str, window: int = 50) -> str:
         """Get context around entity mention"""
-        start = max(0, entity.start_char - window)
-        end = min(len(doc.text), entity.end_char + window)
-        return doc.text[start:end]
+        start = max(0, entity.get('start', 0) - window)
+        end = min(len(text), entity.get('end', 0) + window)
+        return text[start:end]
     
     def _filter_characters(self, min_mentions: int) -> Dict[str, Dict]:
         """Filter and rank characters by importance"""
