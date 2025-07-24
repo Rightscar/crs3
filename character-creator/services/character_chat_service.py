@@ -14,6 +14,7 @@ from config.settings import settings
 from config.logging_config import logger
 from core.models import Character, ConversationTurn
 from core.exceptions import CharacterCreationError
+from core.rate_limiter import rate_limiter
 
 from .character_behavior_engine import CharacterBehaviorEngine
 from .emotional_memory_core import EmotionalMemoryCore
@@ -64,6 +65,16 @@ class CharacterChatService:
     
     def generate_response(self, user_message: str) -> Dict[str, Any]:
         """Generate character response with full context and emotional memory"""
+        # Check rate limit
+        if not rate_limiter.check_and_track('chat_message'):
+            return {
+                'response': "I need a moment to catch my breath. Please slow down a bit.",
+                'metadata': {
+                    'rate_limited': True,
+                    'emotional_state': 'overwhelmed'
+                }
+            }
+        
         start_time = time.time()
         
         # Calculate response time (for engagement tracking)

@@ -16,6 +16,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from config.logging_config import logger
+from core.rate_limiter import rate_limiter
 from services.document_processor import DocumentProcessor
 from services.character_extractor import CharacterExtractor
 from services.character_analyzer import CharacterAnalyzer
@@ -240,7 +241,11 @@ def render_document_upload():
             
         with col3:
             if st.button("🚀 Process Document", type="primary", use_container_width=True):
-                process_document(uploaded_file, enable_ocr)
+                # Check rate limit for file upload
+                if rate_limiter.check_and_track('file_upload'):
+                    process_document(uploaded_file, enable_ocr)
+                else:
+                    st.error("⏳ Please wait before uploading another file.")
 
 
 def process_document(uploaded_file, enable_ocr: bool = False):

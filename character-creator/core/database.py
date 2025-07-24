@@ -144,6 +144,59 @@ class DatabaseManager:
                 )
             """)
             
+            # Character evolution table
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS character_evolution (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    character_id TEXT NOT NULL,
+                    evolution_type TEXT NOT NULL,
+                    previous_state JSON,
+                    new_state JSON,
+                    trigger_event TEXT,
+                    metadata JSON,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (character_id) REFERENCES characters(id) ON DELETE CASCADE
+                )
+            """)
+            
+            # Create indexes for evolution
+            cursor.execute("""
+                CREATE INDEX IF NOT EXISTS idx_evolution_character 
+                ON character_evolution(character_id)
+            """)
+            
+            cursor.execute("""
+                CREATE INDEX IF NOT EXISTS idx_evolution_type 
+                ON character_evolution(evolution_type)
+            """)
+            
+            # Emotional memory table
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS emotional_memory (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    character_id TEXT NOT NULL,
+                    user_id TEXT,
+                    emotion_type TEXT NOT NULL,
+                    intensity REAL DEFAULT 0.5,
+                    context TEXT,
+                    resolved BOOLEAN DEFAULT FALSE,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    resolved_at TIMESTAMP,
+                    FOREIGN KEY (character_id) REFERENCES characters(id) ON DELETE CASCADE
+                )
+            """)
+            
+            # Create indexes for emotional memory
+            cursor.execute("""
+                CREATE INDEX IF NOT EXISTS idx_emotional_character 
+                ON emotional_memory(character_id)
+            """)
+            
+            cursor.execute("""
+                CREATE INDEX IF NOT EXISTS idx_emotional_user 
+                ON emotional_memory(user_id)
+            """)
+            
             logger.info("Database initialized successfully")
     
     def save_character(self, character: Character) -> bool:
@@ -390,6 +443,149 @@ class DatabaseManager:
                 
         except Exception as e:
             logger.error(f"Error logging analytics: {e}")
+    
+    def save_evolution_record(
+        self,
+        character_id: str,
+        evolution_type: str,
+        previous_state: Dict[str, Any],
+        new_state: Dict[str, Any],
+        trigger_event: str,
+        metadata: Optional[Dict[str, Any]] = None
+    ) -> bool:
+        """Save character evolution record"""
+        try:
+            with self.get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute("""
+                    INSERT INTO character_evolution 
+                    (character_id, evolution_type, previous_state, new_state, 
+                     trigger_event, metadata)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                """, (
+                    character_id,
+                    evolution_type,
+                    json.dumps(previous_state),
+                    json.dumps(new_state),
+                    trigger_event,
+                    json.dumps(metadata or {})
+                ))
+                
+                logger.info(f"Saved evolution record for character {character_id}")
+                return True
+                
+        except Exception as e:
+            logger.error(f"Error saving evolution record: {e}")
+            return False
+    
+    def get_evolution_records(
+        self,
+        character_id: str,
+        evolution_type: Optional[str] = None,
+        limit: int = 50
+    ) -> List[Dict[str, Any]]:
+        """Get character evolution records"""
+        try:
+            with self.get_connection() as conn:
+                cursor = conn.cursor()
+                
+                if evolution_type:
+                    cursor.execute("""
+                        SELECT * FROM character_evolution
+                        WHERE character_id = ? AND evolution_type = ?
+                        ORDER BY created_at DESC
+                        LIMIT ?
+                    """, (character_id, evolution_type, limit))
+                else:
+                    cursor.execute("""
+                        SELECT * FROM character_evolution
+                        WHERE character_id = ?
+                        ORDER BY created_at DESC
+                        LIMIT ?
+                    """, (character_id, limit))
+                
+                return [
+                    {
+                        'id': row['id'],
+                        'evolution_type': row['evolution_type'],
+                        'previous_state': json.loads(row['previous_state']),
+                        'new_state': json.loads(row['new_state']),
+                        'trigger_event': row['trigger_event'],
+                        'metadata': json.loads(row['metadata'] or '{}'),
+                        'created_at': row['created_at']
+                    }
+                    for row in cursor.fetchall()
+                ]
+                
+        except Exception as e:
+            logger.error(f"Error getting evolution records: {e}")
+            return []
+    
+    def save_emotional_memory(
+        self,
+        character_id: str,
+        emotion_type: str,
+        intensity: float,
+        context: str,
+        user_id: Optional[str] = None
+    ) -> bool:
+        """Save emotional memory"""
+        try:
+            with self.get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute("""
+                    INSERT INTO emotional_memory 
+                    (character_id, user_id, emotion_type, intensity, context)
+                    VALUES (?, ?, ?, ?, ?)
+                """, (character_id, user_id, emotion_type, intensity, context))
+                
+                return True
+                
+        except Exception as e:
+            logger.error(f"Error saving emotional memory: {e}")
+            return False
+    
+    def get_emotional_memories(
+        self,
+        character_id: str,
+        user_id: Optional[str] = None,
+        unresolved_only: bool = False
+    ) -> List[Dict[str, Any]]:
+        """Get emotional memories"""
+        try:
+            with self.get_connection() as conn:
+                cursor = conn.cursor()
+                
+                query = "SELECT * FROM emotional_memory WHERE character_id = ?"
+                params = [character_id]
+                
+                if user_id:
+                    query += " AND user_id = ?"
+                    params.append(user_id)
+                
+                if unresolved_only:
+                    query += " AND resolved = FALSE"
+                
+                query += " ORDER BY created_at DESC"
+                
+                cursor.execute(query, params)
+                
+                return [
+                    {
+                        'id': row['id'],
+                        'emotion_type': row['emotion_type'],
+                        'intensity': row['intensity'],
+                        'context': row['context'],
+                        'resolved': bool(row['resolved']),
+                        'created_at': row['created_at'],
+                        'resolved_at': row['resolved_at']
+                    }
+                    for row in cursor.fetchall()
+                ]
+                
+        except Exception as e:
+            logger.error(f"Error getting emotional memories: {e}")
+            return []
 
 # Global database instance
 db = DatabaseManager()

@@ -17,6 +17,7 @@ from integrations.config import integration_config
 from config.settings import settings
 from config.logging_config import logger
 from core.exceptions import LLMError
+from core.api_error_handler import api_error_handler, handle_api_errors
 
 
 class LLMService:
@@ -31,10 +32,21 @@ class LLMService:
         self.model = settings.llm.primary_model
         self.max_tokens = settings.llm.max_tokens
         self.temperature = settings.llm.temperature
+        self.api_key = settings.llm.api_key
+        
+        # Initialize OpenAI client directly as backup
+        self.client = None
+        if self.api_key:
+            try:
+                import openai
+                self.client = openai.OpenAI(api_key=self.api_key)
+                logger.info("OpenAI client initialized as backup")
+            except Exception as e:
+                logger.warning(f"Could not initialize OpenAI client: {e}")
         
         # Check if adapter is available
-        if not self.llm_adapter.is_available():
-            logger.warning("LLM adapter not available, will use fallback responses")
+        if not self.llm_adapter.is_available() and not self.client:
+            logger.warning("No LLM service available, will use fallback responses")
     
     def generate_response(
         self, 
@@ -84,6 +96,34 @@ class LLMService:
                     
                 finally:
                     loop.close()
+                    
+            elif self.client:
+                # Use direct OpenAI client
+                try:
+                    enhanced_system_prompt = system_prompt or ""
+                    if mood and mood != 'neutral':
+                        enhanced_system_prompt += f"\n\nCurrent emotional state: {mood}. Respond accordingly."
+                    
+                    # Use error handler for API call
+                    response = api_error_handler.with_retry(
+                        self.client.chat.completions.create,
+                        model=self.model,
+                        messages=[
+                            {"role": "system", "content": enhanced_system_prompt},
+                            {"role": "user", "content": prompt}
+                        ],
+                        temperature=temperature or self.temperature,
+                        max_tokens=max_tokens or self.max_tokens,
+                        fallback=lambda *args, **kwargs: self._generate_fallback_response(prompt, mood)
+                    )
+                    
+                    content = response.choices[0].message.content
+                    logger.info(f"Generated response via OpenAI: {content[:50]}...")
+                    return content
+                    
+                except Exception as e:
+                    logger.error(f"OpenAI API error: {e}")
+                    return self._generate_fallback_response(prompt, mood)
             else:
                 # Fallback to simple responses
                 logger.warning("Using fallback response generation")

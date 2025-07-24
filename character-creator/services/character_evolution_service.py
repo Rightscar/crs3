@@ -416,8 +416,19 @@ class CharacterEvolutionService:
     
     def _save_evolution_record(self, record: Dict[str, Any]):
         """Save evolution record to database"""
-        # This would save to a dedicated evolution table
-        # For now, using the analytics system
+        from core.database import db
+        
+        # Save to database
+        db.save_evolution_record(
+            character_id=record['character_id'],
+            evolution_type=record['evolution_type'],
+            previous_state=record.get('previous_state', {}),
+            new_state=record.get('new_state', {}),
+            trigger_event=record.get('trigger', ''),
+            metadata=record.get('metadata', {})
+        )
+        
+        # Also track in analytics
         self.analytics.track_event('evolution_record', record)
     
     def _get_recent_evolution_records(
@@ -426,9 +437,8 @@ class CharacterEvolutionService:
         limit: int = 10
     ) -> List[Dict[str, Any]]:
         """Get recent evolution records"""
-        # This would query from evolution table
-        # Placeholder implementation
-        return []
+        from core.database import db
+        return db.get_evolution_records(character_id, limit=limit)
     
     def _get_evolution_records(
         self,
@@ -436,9 +446,17 @@ class CharacterEvolutionService:
         days: int
     ) -> List[Dict[str, Any]]:
         """Get evolution records for time period"""
-        # This would query from evolution table
-        # Placeholder implementation
-        return []
+        from core.database import db
+        from datetime import datetime, timedelta
+        
+        # Get all records and filter by date
+        all_records = db.get_evolution_records(character_id, limit=1000)
+        cutoff_date = datetime.now() - timedelta(days=days)
+        
+        return [
+            record for record in all_records
+            if datetime.fromisoformat(record['created_at']) > cutoff_date
+        ]
     
     def _get_evolution_progress(self, character_id: str) -> float:
         """Get evolution progress (0-1)"""
