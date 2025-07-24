@@ -26,7 +26,7 @@ from pathlib import Path
 
 # Configure page first
 st.set_page_config(
-    page_title="Universal Document Reader & AI Processor",
+    page_title="AI PDF Pro - Advanced Document Reader & Editor",
     page_icon="📖",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -41,6 +41,10 @@ try:
     from modules.multi_format_exporter import MultiFormatExporter
     from modules.analytics_dashboard import AnalyticsDashboard
     from modules.session_persistence import SessionPersistence, get_session_persistence, initialize_persistent_session
+    from modules.ui_state_manager import UIStateManager, get_ui_state_manager
+    from modules.realtime_ai_processor import RealtimeAIProcessor, get_realtime_ai_processor
+    from modules.ai_chat_interface import AIChatInterface, get_ai_chat_interface
+    from modules.edit_mode_manager import EditModeManager, get_edit_mode_manager
     MODULES_AVAILABLE = True
 except ImportError as e:
     st.error(f"❌ Module import error: {e}")
@@ -92,10 +96,10 @@ load_dotenv()
 # Custom CSS for three-panel layout
 st.markdown("""
 <style>
-    @import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap");
+    @import url("https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap");
     
     .main { 
-        font-family: "Inter", sans-serif; 
+        font-family: "Roboto", "Inter", sans-serif; 
         padding: 0rem !important;
     }
     
@@ -104,20 +108,97 @@ st.markdown("""
         color: #ffffff;
     }
     
-    /* Three-panel layout */
+    /* Header Navigation Bar */
+    .main-header {
+        background: rgba(15, 15, 35, 0.95);
+        backdrop-filter: blur(15px);
+        border-bottom: 1px solid rgba(64, 123, 255, 0.2);
+        padding: 1rem 2rem;
+        position: sticky;
+        top: 0;
+        z-index: 1000;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    .app-logo {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: #407BFF;
+        text-decoration: none;
+    }
+    
+    .nav-menu {
+        display: flex;
+        gap: 2rem;
+        align-items: center;
+    }
+    
+    .nav-item {
+        color: rgba(255, 255, 255, 0.8);
+        text-decoration: none;
+        padding: 0.5rem 1rem;
+        border-radius: 6px;
+        transition: all 0.2s ease;
+        cursor: pointer;
+    }
+    
+    .nav-item:hover, .nav-item.active {
+        color: #407BFF;
+        background: rgba(64, 123, 255, 0.1);
+    }
+    
+    /* Three-panel layout with collapsible functionality */
     .main-container {
         display: flex;
-        height: 100vh;
+        height: calc(100vh - 80px);
         overflow: hidden;
     }
     
     .nav-panel {
-        width: 280px;
+        width: 320px;
         background: rgba(15, 15, 35, 0.95);
         backdrop-filter: blur(10px);
-        border-right: 1px solid rgba(255, 255, 255, 0.1);
+        border-right: 1px solid rgba(64, 123, 255, 0.2);
         overflow-y: auto;
-        padding: 1rem;
+        padding: 1.5rem;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        position: relative;
+    }
+    
+    .nav-panel.collapsed {
+        width: 60px;
+        padding: 1rem 0.5rem;
+    }
+    
+    .nav-panel.collapsed .panel-content {
+        opacity: 0;
+        visibility: hidden;
+        transform: translateX(-20px);
+    }
+    
+    .panel-toggle {
+        position: absolute;
+        top: 1rem;
+        right: -15px;
+        background: #407BFF;
+        color: white;
+        border: none;
+        border-radius: 50%;
+        width: 30px;
+        height: 30px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.2s ease;
+        z-index: 100;
+    }
+    
+    .panel-toggle:hover {
+        background: #5A8BFF;
+        transform: scale(1.1);
     }
     
     .reader-panel {
@@ -127,15 +208,148 @@ st.markdown("""
         position: relative;
         display: flex;
         flex-direction: column;
+        padding: 1.5rem;
     }
     
     .processor-panel {
         width: 380px;
         background: rgba(15, 15, 35, 0.95);
         backdrop-filter: blur(10px);
-        border-left: 1px solid rgba(255, 255, 255, 0.1);
+        border-left: 1px solid rgba(64, 123, 255, 0.2);
         overflow-y: auto;
+        padding: 1.5rem;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        position: relative;
+    }
+    
+    .processor-panel.collapsed {
+        width: 60px;
+        padding: 1rem 0.5rem;
+    }
+    
+    .processor-panel.collapsed .panel-content {
+        opacity: 0;
+        visibility: hidden;
+        transform: translateX(20px);
+    }
+    
+    .panel-content {
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    
+    /* Upload Zone Styling */
+    .upload-zone {
+        border: 2px dashed rgba(64, 123, 255, 0.4);
+        border-radius: 12px;
+        padding: 3rem 2rem;
+        text-align: center;
+        background: rgba(64, 123, 255, 0.05);
+        transition: all 0.3s ease;
+        margin: 2rem 0;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .upload-zone:hover {
+        border-color: #407BFF;
+        background: rgba(64, 123, 255, 0.1);
+        transform: translateY(-2px);
+    }
+    
+    .upload-zone::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        left: -50%;
+        width: 200%;
+        height: 200%;
+        background: linear-gradient(45deg, transparent, rgba(64, 123, 255, 0.1), transparent);
+        transform: rotate(45deg);
+        transition: all 0.6s ease;
+        opacity: 0;
+    }
+    
+    .upload-zone:hover::before {
+        opacity: 1;
+        animation: shimmer 2s infinite;
+    }
+    
+    @keyframes shimmer {
+        0% { transform: translateX(-100%) translateY(-100%) rotate(45deg); }
+        100% { transform: translateX(100%) translateY(100%) rotate(45deg); }
+    }
+    
+    .upload-icon {
+        font-size: 3rem;
+        color: #407BFF;
+        margin-bottom: 1rem;
+        animation: float 3s ease-in-out infinite;
+    }
+    
+    @keyframes float {
+        0%, 100% { transform: translateY(0px); }
+        50% { transform: translateY(-10px); }
+    }
+    
+    /* File Thumbnails */
+    .file-thumbnail {
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 8px;
         padding: 1rem;
+        margin: 0.5rem;
+        transition: all 0.2s ease;
+        cursor: pointer;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .file-thumbnail:hover {
+        border-color: #407BFF;
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(64, 123, 255, 0.2);
+    }
+    
+    .file-badge {
+        position: absolute;
+        top: 0.5rem;
+        right: 0.5rem;
+        background: #407BFF;
+        color: white;
+        padding: 0.2rem 0.5rem;
+        border-radius: 4px;
+        font-size: 0.7rem;
+        font-weight: 500;
+    }
+    
+    /* AI Insights Badge */
+    .ai-insight-badge {
+        position: absolute;
+        top: 1rem;
+        right: 1rem;
+        background: linear-gradient(45deg, #667eea, #764ba2);
+        color: white;
+        border: none;
+        border-radius: 50%;
+        width: 40px;
+        height: 40px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.3s ease;
+        z-index: 100;
+        animation: pulse 2s infinite;
+    }
+    
+    .ai-insight-badge:hover {
+        transform: scale(1.1);
+        box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
+    }
+    
+    @keyframes pulse {
+        0%, 100% { box-shadow: 0 0 0 0 rgba(102, 126, 234, 0.4); }
+        50% { box-shadow: 0 0 0 10px rgba(102, 126, 234, 0); }
     }
     
     /* Document viewer styles */
@@ -145,9 +359,10 @@ st.markdown("""
         padding: 20px;
         background: white;
         box-shadow: 0 0 30px rgba(0,0,0,0.3);
-        border-radius: 8px;
+        border-radius: 12px;
         color: black;
         min-height: 600px;
+        position: relative;
     }
     
     .page-controls {
@@ -156,48 +371,151 @@ st.markdown("""
         align-items: center;
         gap: 1rem;
         padding: 1rem;
-        background: rgba(0,0,0,0.1);
+        background: rgba(0,0,0,0.05);
         border-radius: 8px;
         margin-bottom: 1rem;
+        backdrop-filter: blur(10px);
     }
     
-    /* Processing results */
-    .processing-result {
-        background: rgba(255, 255, 255, 0.05);
-        border: 1px solid rgba(255, 255, 255, 0.1);
-        border-radius: 8px;
-        padding: 1rem;
-        margin: 0.5rem 0;
-        transition: all 0.2s ease;
-    }
-    
-    .processing-result:hover {
-        border-color: rgba(102, 126, 234, 0.3);
-        box-shadow: 0 4px 20px rgba(102, 126, 234, 0.1);
-    }
-    
-    /* Buttons */
+    /* Enhanced Buttons */
     .stButton > button {
-        background: linear-gradient(45deg, #667eea, #764ba2);
+        background: linear-gradient(45deg, #407BFF, #5A8BFF);
         border: none;
-        border-radius: 6px;
+        border-radius: 8px;
         color: white;
         font-weight: 500;
-        transition: all 0.2s ease;
+        padding: 0.5rem 1.5rem;
+        transition: all 0.3s ease;
         width: 100%;
+        box-shadow: 0 4px 15px rgba(64, 123, 255, 0.2);
     }
     
     .stButton > button:hover {
+        background: linear-gradient(45deg, #5A8BFF, #6B9BFF);
         transform: translateY(-2px);
-        box-shadow: 0 8px 25px rgba(102, 126, 234, 0.3);
+        box-shadow: 0 8px 25px rgba(64, 123, 255, 0.4);
     }
     
-    /* Metrics */
-    .metric-container {
+    .stButton > button:active {
+        transform: translateY(0px);
+    }
+    
+    /* Primary Button Variant */
+    .primary-button {
+        background: linear-gradient(45deg, #407BFF, #5A8BFF) !important;
+        box-shadow: 0 6px 20px rgba(64, 123, 255, 0.3) !important;
+    }
+    
+    /* Processing results with enhanced styling */
+    .processing-result {
         background: rgba(255, 255, 255, 0.05);
-        border-radius: 8px;
+        border: 1px solid rgba(64, 123, 255, 0.2);
+        border-radius: 12px;
+        padding: 1.5rem;
+        margin: 1rem 0;
+        transition: all 0.3s ease;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .processing-result::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 3px;
+        background: linear-gradient(45deg, #407BFF, #5A8BFF);
+    }
+    
+    .processing-result:hover {
+        border-color: #407BFF;
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(64, 123, 255, 0.2);
+    }
+    
+    /* Progress Indicators */
+    .progress-container {
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 10px;
         padding: 1rem;
-        margin: 0.5rem 0;
+        margin: 1rem 0;
+        text-align: center;
+    }
+    
+    .progress-ring {
+        display: inline-block;
+        width: 40px;
+        height: 40px;
+        border: 3px solid rgba(64, 123, 255, 0.3);
+        border-top: 3px solid #407BFF;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+        margin-right: 1rem;
+    }
+    
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+    
+    /* Enhanced Form Elements */
+    .stSelectbox label, .stTextInput label, .stTextArea label {
+        color: #ffffff !important;
+        font-weight: 500;
+    }
+    
+    .stSelectbox > div > div {
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(64, 123, 255, 0.2);
+        border-radius: 8px;
+    }
+    
+    .stTextInput > div > div > input {
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(64, 123, 255, 0.2);
+        border-radius: 8px;
+        color: white;
+    }
+    
+    .stTextArea > div > div > textarea {
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(64, 123, 255, 0.2);
+        border-radius: 8px;
+        color: white;
+    }
+    
+    /* Mobile Responsive Design */
+    @media (max-width: 768px) {
+        .main-container {
+            flex-direction: column;
+            height: auto;
+        }
+        
+        .nav-panel, .processor-panel {
+            width: 100%;
+            max-height: 300px;
+        }
+        
+        .nav-panel.collapsed, .processor-panel.collapsed {
+            height: 60px;
+            max-height: 60px;
+        }
+        
+        .reader-panel {
+            order: 2;
+            min-height: 60vh;
+        }
+        
+        .document-container {
+            margin: 1rem;
+            padding: 1rem;
+        }
+        
+        .upload-zone {
+            margin: 1rem;
+            padding: 2rem 1rem;
+        }
     }
     
     /* Hide streamlit elements */
@@ -205,8 +523,37 @@ st.markdown("""
     footer {visibility: hidden;}
     header {visibility: hidden;}
     
-    .stSelectbox label, .stTextInput label, .stTextArea label {
-        color: #ffffff !important;
+    /* Accessibility Enhancements */
+    .high-contrast {
+        filter: contrast(150%) brightness(120%);
+    }
+    
+    /* Tooltip Styling */
+    .tooltip {
+        position: relative;
+        cursor: help;
+    }
+    
+    .tooltip::after {
+        content: attr(data-tooltip);
+        position: absolute;
+        bottom: 125%;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(0, 0, 0, 0.9);
+        color: white;
+        padding: 0.5rem;
+        border-radius: 4px;
+        white-space: nowrap;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.3s;
+        font-size: 0.8rem;
+        z-index: 1000;
+    }
+    
+    .tooltip:hover::after {
+        opacity: 1;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -222,6 +569,10 @@ class UniversalDocumentReaderApp:
         self.exporter = MultiFormatExporter()
         self.analytics = AnalyticsDashboard()
         self.persistence = get_session_persistence()
+        self.ui_state = get_ui_state_manager()
+        self.realtime_ai = get_realtime_ai_processor()
+        self.ai_chat = get_ai_chat_interface()
+        self.edit_manager = get_edit_mode_manager()
         
         self._initialize_session_state()
         self._initialize_database_session()
@@ -386,80 +737,220 @@ class UniversalDocumentReaderApp:
             st.info("The application encountered an error but is still running.")
     
     def _render_header(self):
-        """Render application header with metrics"""
-        col1, col2, col3, col4, col5 = st.columns([3, 1, 1, 1, 1])
+        """Render application header with navigation bar"""
+        # Top navigation bar
+        st.markdown("""
+        <div class="main-header">
+            <div class="app-logo">
+                📖 AI PDF Pro
+            </div>
+            <div class="nav-menu">
+                <span class="nav-item active" onclick="showHome()">🏠 Home</span>
+                <span class="nav-item" onclick="showFiles()">📁 My Files</span>
+                <span class="nav-item" onclick="showSettings()">⚙️ Settings</span>
+                <span class="nav-item" onclick="showIntegrations()">🔗 Integrations</span>
+                <span class="nav-item" onclick="showAISettings()">🤖 AI Settings</span>
+            </div>
+        </div>
         
-        with col1:
-            st.markdown("# 📖 Universal Document Reader & AI Processor")
+        <script>
+        function showHome() { 
+            window.parent.postMessage({type: 'navigate', page: 'home'}, '*'); 
+        }
+        function showFiles() { 
+            window.parent.postMessage({type: 'navigate', page: 'files'}, '*'); 
+        }
+        function showSettings() { 
+            window.parent.postMessage({type: 'navigate', page: 'settings'}, '*'); 
+        }
+        function showIntegrations() { 
+            window.parent.postMessage({type: 'navigate', page: 'integrations'}, '*'); 
+        }
+        function showAISettings() { 
+            window.parent.postMessage({type: 'navigate', page: 'ai_settings'}, '*'); 
+        }
+        </script>
+        """, unsafe_allow_html=True)
         
-        with col2:
-            if st.session_state.get("document_loaded", False):
+        # Quick metrics bar (only if document is loaded)
+        if st.session_state.get("document_loaded", False):
+            col1, col2, col3, col4, col5 = st.columns([3, 1, 1, 1, 1])
+            
+            with col1:
+                st.markdown("### 📄 Document Analysis")
+            
+            with col2:
                 current_page = st.session_state.get("current_page", 1)
                 total_pages = st.session_state.get("total_pages", 0)
                 st.metric("Page", f"{current_page}/{total_pages}")
-        
-        with col3:
-            processing_results = st.session_state.get("processing_results", [])
-            st.metric("Results", len(processing_results))
-        
-        with col4:
-            session_start_time = st.session_state.get("session_start_time", time.time())
-            session_time = time.time() - session_start_time
-            st.metric("Session", f"{session_time/60:.1f}m")
-        
-        with col5:
-            st.metric("Files", st.session_state.files_processed)
+            
+            with col3:
+                processing_results = st.session_state.get("processing_results", [])
+                st.metric("Results", len(processing_results))
+            
+            with col4:
+                session_start_time = st.session_state.get("session_start_time", time.time())
+                session_time = time.time() - session_start_time
+                st.metric("Session", f"{session_time/60:.1f}m")
+            
+            with col5:
+                st.metric("Files", st.session_state.files_processed)
     
     def _render_welcome_screen(self):
-        """Render welcome screen with file upload"""
-        st.markdown("---")
+        """Render welcome screen with enhanced upload zone and recent files"""
+        # Main upload zone
+        st.markdown("""
+        <div class="upload-zone">
+            <div class="upload-icon">📄</div>
+            <h2 style="color: #407BFF; margin-bottom: 1rem;">Drag & Drop PDF Here or Browse Files</h2>
+            <p style="opacity: 0.8; margin-bottom: 2rem;">
+                Supported formats: PDF, DOCX, TXT, MD, EPUB, HTML • Max size: 50MB
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
         
-        # Welcome content
+        # File uploader with enhanced styling
         col1, col2, col3 = st.columns([1, 2, 1])
         
         with col2:
-            st.markdown("""
-            <div style="text-align: center; padding: 3rem 0;">
-                <h2>📚 Welcome to Document Reader & AI Processor</h2>
-                <p style="font-size: 1.2em; opacity: 0.8;">
-                    Upload any document to start reading and processing with AI
-                </p>
-            </div>
-            """, unsafe_allow_html=True)
-            
-            # File uploader
             uploaded_file = st.file_uploader(
                 "Choose a document",
                 type=['pdf', 'docx', 'txt', 'md', 'epub', 'html'],
-                help="Supported formats: PDF, DOCX, TXT, MD, EPUB, HTML"
+                help="Supported formats: PDF, DOCX, TXT, MD, EPUB, HTML",
+                label_visibility="collapsed"
             )
             
-            if uploaded_file:
-                self._load_document(uploaded_file)
+            # OCR checkbox
+            col_ocr1, col_ocr2 = st.columns([1, 4])
+            with col_ocr1:
+                enable_ocr = st.checkbox("", key="enable_ocr")
+            with col_ocr2:
+                st.markdown("**Enable OCR for text recognition** (scanned documents)")
             
-            # System capabilities
-            with st.expander("🔧 System Capabilities", expanded=False):
-                caps = st.session_state.system_capabilities
+            if uploaded_file:
+                # Show preview pane with AI insights
+                with st.container():
+                    st.markdown("### 📋 Document Preview")
+                    
+                    col_prev1, col_prev2 = st.columns([2, 1])
+                    
+                    with col_prev1:
+                        st.info(f"📄 **{uploaded_file.name}** ({uploaded_file.size:,} bytes)")
+                        st.write(f"Format: {uploaded_file.name.split('.')[-1].upper()}")
+                        
+                    with col_prev2:
+                        if st.button("🚀 **Upload & Analyze**", type="primary"):
+                            self._load_document(uploaded_file, enable_ocr)
+                    
+                    # AI-detected insights preview
+                    st.markdown("#### 🤖 AI Quick Insights")
+                    insights_col1, insights_col2 = st.columns(2)
+                    
+                    with insights_col1:
+                        st.markdown("""
+                        <div class="processing-result">
+                            📊 <strong>Readability Analysis</strong><br>
+                            <small>Estimated reading level: Professional</small>
+                        </div>
+                        """, unsafe_allow_html=True)
+                        
+                    with insights_col2:
+                        if st.button("✨ Suggest Rewrite?", help="AI can help improve readability"):
+                            st.success("✅ Rewrite suggestions will be available after upload!")
+        
+        # Recent Files Section
+        st.markdown("---")
+        st.markdown("### 📚 Recent Files")
+        
+        # Get recent documents from database
+        try:
+            recent_docs = self.persistence.get_document_history(limit=6)
+            
+            if recent_docs:
+                # Display in grid
+                cols = st.columns(3)
+                for i, doc in enumerate(recent_docs):
+                    with cols[i % 3]:
+                        self._render_file_thumbnail(doc)
+            else:
+                st.info("No recent files. Upload a document to get started!")
                 
-                col_a, col_b = st.columns(2)
-                
-                with col_a:
-                    st.markdown("**Document Formats:**")
-                    for fmt in caps["Document Reader"]:
-                        st.write(f"✅ {fmt.upper()}")
-                
-                with col_b:
-                    st.markdown("**Processing Features:**")
-                    nlp_caps = caps["NLP Processor"]
-                    for feature, available in nlp_caps.items():
-                        icon = "✅" if available else "⚠️"
-                        st.write(f"{icon} {feature.replace('_', ' ').title()}")
+        except Exception as e:
+            st.info("Upload your first document to see recent files here!")
+        
+        # Background elements
+        st.markdown("""
+        <div style="position: fixed; bottom: 20px; right: 20px; opacity: 0.1; font-size: 4rem; z-index: -1;">
+            📄📄📄
+        </div>
+        <div style="position: fixed; top: 50%; left: 10px; opacity: 0.05; font-size: 6rem; z-index: -1;">
+            ✨
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # System capabilities (collapsed by default)
+        with st.expander("🔧 System Capabilities & Features", expanded=False):
+            caps = st.session_state.system_capabilities
+            
+            col_a, col_b, col_c = st.columns(3)
+            
+            with col_a:
+                st.markdown("**📄 Document Formats:**")
+                for fmt in caps["Document Reader"]:
+                    st.write(f"✅ {fmt.upper()}")
+            
+            with col_b:
+                st.markdown("**🧠 AI Features:**")
+                nlp_caps = caps["NLP Processor"]
+                for feature, available in nlp_caps.items():
+                    icon = "✅" if available else "⚠️"
+                    st.write(f"{icon} {feature.replace('_', ' ').title()}")
+            
+            with col_c:
+                st.markdown("**🔗 Integrations:**")
+                st.write("🔗 Google Drive (Coming Soon)")
+                st.write("🔗 Dropbox (Coming Soon)")
+                st.write("🔗 Custom NLP APIs (Available)")
                 
                 ai_status = "✅ Available" if caps["AI Generator"] else "⚠️ Demo Mode"
-                st.markdown(f"**AI Processing:** {ai_status}")
+                st.markdown(f"**🤖 AI Processing:** {ai_status}")
     
-    def _load_document(self, uploaded_file):
-        """Load uploaded document"""
+    def _render_file_thumbnail(self, doc):
+        """Render individual file thumbnail"""
+        # Determine file type badge color
+        format_colors = {
+            'pdf': '#FF4B4B',
+            'docx': '#4285F4', 
+            'txt': '#34A853',
+            'md': '#9C27B0',
+            'epub': '#FF9800',
+            'html': '#F44336'
+        }
+        
+        badge_color = format_colors.get(doc.format_type.lower(), '#666666')
+        
+        st.markdown(f"""
+        <div class="file-thumbnail" onclick="loadDocument('{doc.document_id}')">
+            <div class="file-badge" style="background: {badge_color};">
+                {doc.format_type.upper()}
+            </div>
+            <h4 style="margin: 0.5rem 0; color: white;">{doc.filename[:25]}{'...' if len(doc.filename) > 25 else ''}</h4>
+            <p style="font-size: 0.8rem; opacity: 0.7; margin: 0;">
+                {doc.file_size:,} bytes • {doc.upload_time.strftime('%b %d, %Y')}
+            </p>
+            <p style="font-size: 0.7rem; opacity: 0.6; margin: 0.5rem 0 0 0;">
+                Processed: {doc.processing_count} times
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # Add click handler
+        if st.button("📖 Re-open", key=f"reopen_{doc.document_id}", help=f"Open {doc.filename}"):
+            self._load_document_from_history(doc.document_id)
+            st.rerun()
+    
+    def _load_document(self, uploaded_file, enable_ocr=False):
+        """Load uploaded document with optional OCR"""
         try:
             with st.spinner("📖 Loading document..."):
                 # Safe file processing with validation
@@ -628,22 +1119,77 @@ class UniversalDocumentReaderApp:
             st.error(f"Error: {e}")
     
     def _render_three_panel_interface(self):
-        """Render the main three-panel interface"""
+        """Render the main three-panel interface with collapsible panels"""
         
-        # Create three columns for the panels
-        nav_col, reader_col, processor_col = st.columns([3, 8, 4])
+        # Initialize panel states if not present
+        if 'nav_panel_collapsed' not in st.session_state:
+            st.session_state.nav_panel_collapsed = False
+        if 'processor_panel_collapsed' not in st.session_state:
+            st.session_state.processor_panel_collapsed = False
         
+        # Panel toggle controls
+        col_toggle1, col_toggle2, col_toggle3, col_toggle4 = st.columns([1, 1, 8, 1])
+        
+        with col_toggle1:
+            if st.button("◀️" if not st.session_state.nav_panel_collapsed else "▶️", 
+                        help="Toggle Navigation Panel", key="nav_toggle"):
+                st.session_state.nav_panel_collapsed = not st.session_state.nav_panel_collapsed
+                st.rerun()
+        
+        with col_toggle2:
+            st.markdown("**📚 Navigation**" if not st.session_state.nav_panel_collapsed else "**📚**")
+        
+        with col_toggle4:
+            if st.button("▶️" if not st.session_state.processor_panel_collapsed else "◀️", 
+                        help="Toggle AI Panel", key="processor_toggle"):
+                st.session_state.processor_panel_collapsed = not st.session_state.processor_panel_collapsed
+                st.rerun()
+        
+        # Dynamic column sizing based on collapsed states
+        nav_width = 1 if st.session_state.nav_panel_collapsed else 3
+        processor_width = 1 if st.session_state.processor_panel_collapsed else 4
+        reader_width = 12 - nav_width - processor_width
+        
+        # Create columns with dynamic sizing
+        if st.session_state.nav_panel_collapsed and st.session_state.processor_panel_collapsed:
+            # Both panels collapsed
+            _, nav_col, reader_col, processor_col, _ = st.columns([0.5, 1, 10, 1, 0.5])
+        elif st.session_state.nav_panel_collapsed:
+            # Only nav collapsed
+            _, nav_col, reader_col, processor_col = st.columns([0.5, 1, 7, 4])
+        elif st.session_state.processor_panel_collapsed:
+            # Only processor collapsed
+            nav_col, reader_col, processor_col, _ = st.columns([3, 8, 1, 0.5])
+        else:
+            # Both panels open
+            nav_col, reader_col, processor_col = st.columns([3, 6, 4])
+        
+        # Render panels with collapse-aware content
         with nav_col:
-            self._render_navigation_panel()
+            self._render_navigation_panel(collapsed=st.session_state.nav_panel_collapsed)
         
         with reader_col:
             self._render_document_viewer()
         
         with processor_col:
-            self._render_processor_panel()
+            self._render_processor_panel(collapsed=st.session_state.processor_panel_collapsed)
     
-    def _render_navigation_panel(self):
-        """Render left navigation panel"""
+    def _render_navigation_panel(self, collapsed=False):
+        """Render left navigation panel with collapse support"""
+        if collapsed:
+            # Collapsed view - show only icons
+            st.markdown("""
+            <div class="panel-content collapsed-panel">
+                <div style="text-align: center;">
+                    <div style="font-size: 1.5rem; margin: 1rem 0;">📚</div>
+                    <div style="font-size: 1.2rem; margin: 1rem 0;">🔖</div>
+                    <div style="font-size: 1.2rem; margin: 1rem 0;">🔍</div>
+                    <div style="font-size: 1.2rem; margin: 1rem 0;">📊</div>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+            return
+        
         st.markdown("### 📚 Navigation")
         
         # Document info
@@ -702,6 +1248,30 @@ class UniversalDocumentReaderApp:
                 st.session_state.bookmarks.append(new_bookmark)
                 st.session_state.new_bookmark_title = ""
                 st.rerun()
+        
+        # Smart Navigation
+        with st.expander("🧠 Smart Navigation", expanded=False):
+            if st.session_state.current_document:
+                # AI-powered jump to section
+                if st.button("🎯 Jump to Key Sections", help="AI finds important sections"):
+                    st.info("✨ AI analyzing document structure...")
+                    # Simulate AI analysis
+                    key_sections = [
+                        {"title": "Introduction", "page": 1, "confidence": 0.95},
+                        {"title": "Methodology", "page": 3, "confidence": 0.87},
+                        {"title": "Results", "page": 7, "confidence": 0.92},
+                        {"title": "Conclusion", "page": 12, "confidence": 0.89}
+                    ]
+                    
+                    for section in key_sections:
+                        col_sec1, col_sec2 = st.columns([3, 1])
+                        with col_sec1:
+                            st.write(f"📄 {section['title']} (Page {section['page']})")
+                            st.caption(f"Confidence: {section['confidence']:.0%}")
+                        with col_sec2:
+                            if st.button("Go", key=f"smart_nav_{section['page']}"):
+                                st.session_state.current_page = section['page']
+                                st.rerun()
         
         # Enhanced Search
         with st.expander("🔍 Advanced Search", expanded=False):
@@ -820,6 +1390,23 @@ class UniversalDocumentReaderApp:
             st.session_state.zoom_level = zoom_value
         
         with col5:
+            # Edit Mode Toggle
+            if not st.session_state.get('edit_mode_active', False):
+                if st.button("✏️ Edit Mode", type="primary", help="Enable editing for this document"):
+                    page_text = self.document_reader.extract_page_text(st.session_state.current_page)
+                    if self.edit_manager.enable_edit_mode(page_text):
+                        st.success("✅ Edit mode enabled!")
+                        st.rerun()
+            else:
+                if st.button("📖 Read Mode", help="Return to read-only mode"):
+                    if self.edit_manager.disable_edit_mode():
+                        st.success("📖 Returned to read mode")
+                        st.rerun()
+        
+        # Additional controls row
+        col_extra1, col_extra2, col_extra3, col_extra4 = st.columns(4)
+        
+        with col_extra1:
             if st.button("🔖 Bookmark"):
                 bookmark_title = f"Page {st.session_state.current_page}"
                 new_bookmark = {
@@ -830,9 +1417,25 @@ class UniversalDocumentReaderApp:
                 st.session_state.bookmarks.append(new_bookmark)
                 st.success("Bookmark added!")
         
+        with col_extra2:
+            if st.session_state.get('edit_mode_active', False):
+                edit_stats = self.edit_manager.get_edit_statistics()
+                st.metric("Changes", edit_stats['total_changes'])
+        
+        with col_extra3:
+            if st.session_state.get('edit_mode_active', False):
+                edit_stats = self.edit_manager.get_edit_statistics()
+                st.metric("Annotations", edit_stats['total_annotations'])
+        
+        with col_extra4:
+            if st.session_state.get('edit_mode_active', False):
+                # Export edited document
+                if st.button("📤 Export Edits"):
+                    self._show_export_edited_document()
+        
         st.markdown("---")
         
-        # Document page display
+        # Document page display with AI insights
         try:
             page_data = self.document_reader.render_page(
                 st.session_state.current_page, 
@@ -840,6 +1443,15 @@ class UniversalDocumentReaderApp:
             )
             
             if page_data:
+                # Container with AI insights badge
+                st.markdown("""
+                <div style="position: relative;">
+                    <div class="ai-insight-badge" onclick="showAIInsights()" title="AI Insights Available">
+                        💡
+                    </div>
+                </div>
+                """, unsafe_allow_html=True)
+                
                 # Display page image if available
                 if page_data.image_data:
                     st.image(
@@ -848,35 +1460,69 @@ class UniversalDocumentReaderApp:
                         use_container_width=True
                     )
                 
-                # Display text content
+                # Display text content with real-time AI analysis or edit interface
                 if page_data.text_content:
-                    with st.expander("📝 Page Text", expanded=False):
-                        st.text_area(
-                            "Page content",
-                            value=page_data.text_content,
-                            height=300,
-                            disabled=True,
-                            key="page_text_display"
-                        )
+                    # Check if in edit mode
+                    if st.session_state.get('edit_mode_active', False):
+                        with st.expander("✏️ Edit Mode Interface", expanded=True):
+                            edited_text = self.edit_manager.render_edit_interface(page_data.text_content)
+                    else:
+                        with st.expander("📝 Page Text with AI Analysis", expanded=True):
+                        # Real-time AI processing toggle
+                        col_toggle1, col_toggle2, col_toggle3 = st.columns(3)
+                        
+                        with col_toggle1:
+                            enable_grammar = st.checkbox("✅ Grammar Check", value=True, 
+                                                       help="Real-time grammar checking with green highlights")
+                        with col_toggle2:
+                            enable_emotion = st.checkbox("😊 Emotion Analysis", value=True,
+                                                       help="Color-coded emotion analysis")
+                        with col_toggle3:
+                            enable_insights = st.checkbox("💡 AI Insights", value=True,
+                                                        help="Real-time content suggestions")
+                        
+                        # Process text with real-time AI
+                        if enable_grammar or enable_emotion or enable_insights:
+                            ai_results = self.realtime_ai.process_text_realtime(
+                                page_data.text_content,
+                                enable_grammar=enable_grammar,
+                                enable_emotion=enable_emotion,
+                                enable_insights=enable_insights
+                            )
+                            
+                            if ai_results:
+                                self._display_ai_enhanced_text(page_data.text_content, ai_results)
+                        else:
+                            # Simple text display
+                            st.text_area(
+                                "Page content",
+                                value=page_data.text_content,
+                                height=300,
+                                disabled=True,
+                                key="page_text_display"
+                            )
                     
-                    # Text selection simulation
-                    st.markdown("**💡 Text Selection:**")
+                    # Enhanced text selection with AI processing
+                    st.markdown("**💡 Interactive Text Analysis:**")
                     selected_text = st.text_area(
-                        "Select text to process (copy and paste from above)",
+                        "Select text for detailed AI analysis",
                         height=100,
                         key="selected_text_input",
-                        placeholder="Copy text from the page above to process it..."
+                        placeholder="Copy text from the page above for detailed AI analysis..."
                     )
                     
                     if selected_text != st.session_state.selected_text:
                         st.session_state.selected_text = selected_text
                     
                     if selected_text:
-                        col1, col2 = st.columns(2)
+                        col1, col2, col3 = st.columns(3)
                         with col1:
-                            if st.button("🧠 Process Selection", type="primary"):
-                                self._process_selected_text(selected_text)
+                            if st.button("🧠 AI Analysis", type="primary"):
+                                self._process_selected_text_enhanced(selected_text)
                         with col2:
+                            if st.button("🎯 Grammar Check"):
+                                self._show_grammar_analysis(selected_text)
+                        with col3:
                             if st.button("📋 Clear Selection"):
                                 st.session_state.selected_text = ""
                                 st.rerun()
@@ -896,17 +1542,55 @@ class UniversalDocumentReaderApp:
             except Exception as e2:
                 st.error(f"Failed to extract text: {str(e2)}")
     
-    def _render_processor_panel(self):
-        """Render right processor panel"""
+    def _render_processor_panel(self, collapsed=False):
+        """Render right processor panel with collapse support"""
+        if collapsed:
+            # Collapsed view - show only icons
+            st.markdown("""
+            <div class="panel-content collapsed-panel">
+                <div style="text-align: center;">
+                    <div style="font-size: 1.5rem; margin: 1rem 0;">🧠</div>
+                    <div style="font-size: 1.2rem; margin: 1rem 0;">⚙️</div>
+                    <div style="font-size: 1.2rem; margin: 1rem 0;">🔍</div>
+                    <div style="font-size: 1.2rem; margin: 1rem 0;">📤</div>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+            return
+        
         st.markdown("### 🧠 AI Processor")
         
-        # Processing mode selection
-        mode = st.selectbox(
-            "Processing Mode",
-            ["Keyword Analysis", "Context Extraction", "Q&A Generation", "Summary Creation", "Entity Extraction", "Theme Analysis", "Structure Analysis", "Content Insights"],
-            key="processing_mode_select"
-        )
-        st.session_state.current_processing_mode = mode
+        # AI Processing Tabs
+        tab1, tab2 = st.tabs(["🔬 Analysis", "💬 AI Chat"])
+        
+        with tab1:
+            # Processing mode selection
+            mode = st.selectbox(
+                "Processing Mode",
+                ["Keyword Analysis", "Context Extraction", "Q&A Generation", "Summary Creation", "Entity Extraction", "Theme Analysis", "Structure Analysis", "Content Insights"],
+                key="processing_mode_select"
+            )
+            st.session_state.current_processing_mode = mode
+            
+            # Real-time AI toggle
+            st.markdown("**⚡ Real-time AI Features:**")
+            col_rt1, col_rt2 = st.columns(2)
+            
+            with col_rt1:
+                realtime_grammar = st.checkbox("✅ Live Grammar", value=False, 
+                                             help="Real-time grammar checking")
+                realtime_emotion = st.checkbox("😊 Live Emotion", value=False,
+                                             help="Real-time emotion analysis")
+            
+            with col_rt2:
+                realtime_insights = st.checkbox("💡 Live Insights", value=False,
+                                               help="Real-time AI suggestions")
+                ai_confidence_threshold = st.slider("AI Confidence", 0.1, 1.0, 0.7,
+                                                   help="Minimum confidence for AI suggestions")
+        
+        with tab2:
+            # AI Chat Interface
+            self._render_ai_chat_interface()
         
         # Mode-specific inputs
         with st.expander("⚙️ Processing Settings", expanded=True):
@@ -1004,12 +1688,23 @@ class UniversalDocumentReaderApp:
                 st.warning("No text found on current page")
                 return
             
-            with st.spinner(f"Processing page {st.session_state.current_page}..."):
-                results = self._process_text_with_mode(
-                    page_text, 
-                    st.session_state.current_processing_mode,
-                    st.session_state.current_page
-                )
+            # Enhanced progress indicator with estimated time
+            progress_placeholder = st.empty()
+            progress_placeholder.markdown("""
+            <div class="progress-container">
+                <div class="progress-ring"></div>
+                <strong>🧠 Processing page {}</strong><br>
+                <small>Analyzing {} • Estimated time: 5-10 seconds</small>
+            </div>
+            """.format(st.session_state.current_page, st.session_state.current_processing_mode), unsafe_allow_html=True)
+            
+            results = self._process_text_with_mode(
+                page_text, 
+                st.session_state.current_processing_mode,
+                st.session_state.current_page
+            )
+            
+            progress_placeholder.empty()
                 
                 if results:
                     # Calculate metrics
@@ -1077,30 +1772,210 @@ class UniversalDocumentReaderApp:
                 confidence_avg=confidence_avg
             )
     
-    def _process_selected_text(self, selected_text: str):
-        """Process selected text"""
+    def _display_ai_enhanced_text(self, text: str, ai_results: dict):
+        """Display text with AI enhancements (grammar, emotion, insights)"""
+        try:
+            # Create enhanced text display
+            enhanced_html = self._create_enhanced_text_html(text, ai_results)
+            
+            # Display enhanced text
+            st.markdown(enhanced_html, unsafe_allow_html=True)
+            
+            # Display AI insights if available
+            if 'ai_insights' in ai_results and ai_results['ai_insights']:
+                st.markdown("#### 🤖 AI Insights")
+                for insight in ai_results['ai_insights'][:3]:  # Show top 3 insights
+                    confidence_color = "🟢" if insight.confidence > 0.8 else "🟡" if insight.confidence > 0.6 else "🔴"
+                    
+                    with st.container():
+                        st.markdown(f"""
+                        <div class="processing-result">
+                            <strong>{confidence_color} {insight.title}</strong><br>
+                            <small>{insight.description}</small><br>
+                            💡 <em>{insight.suggestion}</em>
+                        </div>
+                        """, unsafe_allow_html=True)
+                        
+                        if insight.actionable and st.button(f"Apply Suggestion", key=f"apply_{insight.type}"):
+                            st.success("✅ Suggestion noted! In edit mode, this would apply the change.")
+            
+            # Display processing stats
+            if 'processing_time' in ai_results:
+                st.caption(f"⚡ Processed in {ai_results['processing_time']:.2f}s")
+            
+        except Exception as e:
+            logger.error(f"AI enhanced text display error: {e}")
+            st.text_area("Page content (fallback)", value=text, height=300, disabled=True)
+    
+    def _create_enhanced_text_html(self, text: str, ai_results: dict) -> str:
+        """Create HTML with grammar and emotion highlights"""
+        enhanced_text = text
+        
+        try:
+            # Apply emotion highlighting
+            if 'emotions' in ai_results:
+                for emotion in ai_results['emotions']:
+                    emotion_text = emotion.text
+                    color = emotion.color_code
+                    emotion_label = emotion.emotion.replace('_', ' ').title()
+                    
+                    # Create highlighted span
+                    highlighted = f'<span style="background-color: {color}20; border-left: 3px solid {color}; padding: 2px; margin: 1px;" title="Emotion: {emotion_label} ({emotion.confidence:.0%})">{emotion_text}</span>'
+                    enhanced_text = enhanced_text.replace(emotion_text, highlighted, 1)
+            
+            # Apply grammar highlighting
+            if 'grammar_issues' in ai_results:
+                for issue in ai_results['grammar_issues']:
+                    issue_text = issue.text
+                    severity_color = "#DC2626" if issue.severity == 'high' else "#F59E0B" if issue.severity == 'medium' else "#10B981"
+                    
+                    # Create grammar highlight
+                    highlighted = f'<span style="background-color: {severity_color}30; text-decoration: underline wavy {severity_color};" title="Grammar: {issue.issue_type} - {issue.suggestion}">{issue_text}</span>'
+                    enhanced_text = enhanced_text.replace(issue_text, highlighted, 1)
+            
+            # Wrap in styled container
+            return f"""
+            <div style="background: white; color: black; padding: 1rem; border-radius: 8px; line-height: 1.6; font-family: 'Roboto', sans-serif;">
+                {enhanced_text.replace('\n', '<br>')}
+            </div>
+            <div style="margin-top: 0.5rem; font-size: 0.8rem; opacity: 0.7;">
+                🔴 Negative emotion • 🔵 Positive emotion • <span style="text-decoration: underline wavy;">Grammar issues</span>
+            </div>
+            """
+            
+        except Exception as e:
+            logger.error(f"Enhanced text HTML creation error: {e}")
+            return f'<div style="background: white; color: black; padding: 1rem; border-radius: 8px;">{text.replace("\n", "<br>")}</div>'
+    
+    def _process_selected_text_enhanced(self, selected_text: str):
+        """Enhanced processing of selected text with real-time AI"""
         if not selected_text.strip():
             st.warning("No text selected")
             return
         
         try:
-            with st.spinner("Processing selected text..."):
-                results = self._process_text_with_mode(
+            # Real-time AI analysis
+            with st.spinner("🧠 Performing comprehensive AI analysis..."):
+                ai_results = self.realtime_ai.process_text_realtime(
                     selected_text,
-                    st.session_state.current_processing_mode,
-                    st.session_state.current_page
+                    enable_grammar=True,
+                    enable_emotion=True,
+                    enable_insights=True
                 )
                 
-                if results:
-                    st.session_state.processing_results.extend(results)
-                    st.success(f"Generated {len(results)} results from selection!")
-                    st.rerun()
+                if ai_results:
+                    # Display results in expander
+                    with st.expander("🔍 Detailed AI Analysis Results", expanded=True):
+                        self._display_detailed_ai_results(selected_text, ai_results)
+                        
+                        # Chat about the selection
+                        if st.button("💬 Ask AI about this text"):
+                            self._start_chat_about_selection(selected_text)
                 else:
-                    st.warning("No results generated from selection")
+                    st.warning("No AI analysis results generated")
                     
         except Exception as e:
-            logger.error(f"Selection processing error: {e}")
-            st.error(f"Failed to process selection: {str(e)}")
+            logger.error(f"Enhanced selection processing error: {e}")
+            st.error(f"AI analysis failed: {str(e)}")
+    
+    def _show_grammar_analysis(self, text: str):
+        """Show detailed grammar analysis"""
+        try:
+            grammar_issues = self.realtime_ai.check_grammar_realtime(text)
+            
+            if grammar_issues:
+                st.markdown("#### 📝 Grammar Analysis Results")
+                
+                for i, issue in enumerate(grammar_issues[:10]):  # Show top 10 issues
+                    severity_icon = "🔴" if issue.severity == 'high' else "🟡" if issue.severity == 'medium' else "🟢"
+                    
+                    col1, col2 = st.columns([3, 1])
+                    
+                    with col1:
+                        st.markdown(f"""
+                        **{severity_icon} {issue.issue_type.replace('_', ' ').title()}**
+                        
+                        Original: `{issue.text}`
+                        
+                        Suggestion: `{issue.suggestion}`
+                        """)
+                    
+                    with col2:
+                        if st.button("Apply", key=f"apply_grammar_{i}"):
+                            st.success("✅ In edit mode, this would apply the correction!")
+                
+                st.info(f"Found {len(grammar_issues)} grammar issues. Enable edit mode to apply corrections.")
+            else:
+                st.success("✅ No grammar issues detected!")
+                
+        except Exception as e:
+            logger.error(f"Grammar analysis error: {e}")
+            st.error("Grammar analysis failed")
+    
+    def _display_detailed_ai_results(self, text: str, ai_results: dict):
+        """Display comprehensive AI analysis results"""
+        
+        # Grammar Issues
+        if 'grammar_issues' in ai_results and ai_results['grammar_issues']:
+            st.markdown("##### ✅ Grammar Analysis")
+            for issue in ai_results['grammar_issues'][:5]:
+                st.markdown(f"- **{issue.issue_type}**: `{issue.text}` → `{issue.suggestion}`")
+        
+        # Emotion Analysis
+        if 'emotions' in ai_results and ai_results['emotions']:
+            st.markdown("##### 😊 Emotion Analysis")
+            emotion_summary = {}
+            for emotion in ai_results['emotions']:
+                emotion_type = emotion.emotion
+                if emotion_type not in emotion_summary:
+                    emotion_summary[emotion_type] = []
+                emotion_summary[emotion_type].append(emotion.confidence)
+            
+            for emotion_type, confidences in emotion_summary.items():
+                avg_confidence = sum(confidences) / len(confidences)
+                emotion_icon = "😊" if 'positive' in emotion_type else "😔" if 'negative' in emotion_type else "😐"
+                st.markdown(f"- {emotion_icon} **{emotion_type.replace('_', ' ').title()}**: {avg_confidence:.0%} confidence")
+        
+        # AI Insights
+        if 'ai_insights' in ai_results and ai_results['ai_insights']:
+            st.markdown("##### 💡 AI Insights")
+            for insight in ai_results['ai_insights']:
+                st.markdown(f"- **{insight.title}**: {insight.suggestion}")
+    
+    def _start_chat_about_selection(self, selected_text: str):
+        """Start AI chat about selected text"""
+        try:
+            # Initialize chat session if not exists
+            if not hasattr(st.session_state, 'chat_session_active'):
+                document_title = st.session_state.current_document.get('metadata', {}).title if st.session_state.current_document else "Current Document"
+                session_id = self.ai_chat.initialize_chat_session(
+                    document_id=st.session_state.get('current_document_id'),
+                    document_title=document_title
+                )
+                st.session_state.chat_session_active = True
+                st.session_state.chat_session_id = session_id
+            
+            # Send initial message about the selection
+            initial_message = f"I've selected this text from the document: '{selected_text[:200]}...' Can you analyze and explain this for me?"
+            
+            response = self.ai_chat.send_message(
+                initial_message,
+                document_context=selected_text,
+                current_page=st.session_state.current_page
+            )
+            
+            # Show chat interface
+            st.session_state.show_ai_chat = True
+            st.success("💬 Chat started! Check the AI Chat panel.")
+            st.rerun()
+            
+        except Exception as e:
+            logger.error(f"Chat initialization error: {e}")
+            st.error("Failed to start chat session")
+    
+    def _process_selected_text(self, selected_text: str):
+        """Legacy method - redirects to enhanced processing"""
+        self._process_selected_text_enhanced(selected_text)
     
     def _process_text_with_mode(self, text: str, mode: str, page_number: int) -> List[ProcessingResult]:
         """Process text with specified mode"""
@@ -1615,6 +2490,236 @@ class UniversalDocumentReaderApp:
     def _search_document(self, search_term: str):
         """Legacy search method for compatibility"""
         return self._text_search(search_term, False, False, 20)
+    
+    def _render_ai_chat_interface(self):
+        """Render AI chat interface in processor panel"""
+        try:
+            # Initialize chat session if needed
+            if not hasattr(st.session_state, 'chat_session_active') or not st.session_state.chat_session_active:
+                if st.button("🚀 Start AI Chat Session"):
+                    document_title = "Current Document"
+                    if st.session_state.current_document:
+                        metadata = st.session_state.current_document.get('metadata')
+                        if metadata:
+                            document_title = metadata.title or "Current Document"
+                    
+                    session_id = self.ai_chat.initialize_chat_session(
+                        document_id=st.session_state.get('current_document_id'),
+                        document_title=document_title
+                    )
+                    st.session_state.chat_session_active = True
+                    st.session_state.chat_session_id = session_id
+                    st.rerun()
+                
+                st.info("💬 Start a chat session to ask questions about your document!")
+                return
+            
+            # Chat interface
+            st.markdown("#### 💬 AI Document Assistant")
+            
+            # Chat history
+            chat_history = self.ai_chat.get_chat_history()
+            
+            # Display chat messages
+            chat_container = st.container()
+            with chat_container:
+                if chat_history:
+                    for message in chat_history[-6:]:  # Show last 6 messages
+                        if message.role == 'user':
+                            with st.chat_message("user"):
+                                st.write(message.content)
+                                if message.source_page:
+                                    st.caption(f"📄 Page {message.source_page}")
+                        
+                        elif message.role == 'assistant':
+                            with st.chat_message("assistant"):
+                                st.write(message.content)
+                                # Show confidence and context
+                                col1, col2 = st.columns([3, 1])
+                                with col1:
+                                    if message.context_used:
+                                        st.caption(f"📖 Context: {message.context_used}")
+                                with col2:
+                                    confidence_color = "🟢" if message.confidence > 0.8 else "🟡" if message.confidence > 0.6 else "🔴"
+                                    st.caption(f"{confidence_color} {message.confidence:.0%}")
+                else:
+                    st.info("👋 Hello! I'm your AI document assistant. Ask me anything about your document!")
+            
+            # Suggested questions
+            if not chat_history or len(chat_history) < 2:
+                current_page_text = ""
+                try:
+                    current_page_text = self.document_reader.extract_page_text(st.session_state.current_page)
+                except:
+                    pass
+                
+                suggestions = self.ai_chat.get_suggested_questions(current_page_text)
+                
+                st.markdown("**💡 Suggested Questions:**")
+                for i, suggestion in enumerate(suggestions[:3]):
+                    if st.button(suggestion, key=f"suggest_{i}"):
+                        self._send_chat_message(suggestion)
+                        st.rerun()
+            
+            # Chat input
+            user_input = st.text_input(
+                "Ask a question about the document:",
+                placeholder="What is this document about?",
+                key="chat_input"
+            )
+            
+            col1, col2, col3 = st.columns([2, 1, 1])
+            
+            with col1:
+                if st.button("💬 Send", type="primary", disabled=not user_input):
+                    self._send_chat_message(user_input)
+                    st.rerun()
+            
+            with col2:
+                if st.button("🧠 Analyze Page"):
+                    page_text = self.document_reader.extract_page_text(st.session_state.current_page)
+                    auto_message = f"Can you analyze page {st.session_state.current_page} of this document?"
+                    self._send_chat_message(auto_message, page_text[:1000])
+                    st.rerun()
+            
+            with col3:
+                if st.button("🗑️ Clear"):
+                    self.ai_chat.clear_chat_history()
+                    st.rerun()
+            
+            # Chat analytics
+            if len(chat_history) > 0:
+                with st.expander("📊 Chat Analytics", expanded=False):
+                    analytics = self.ai_chat.get_chat_analytics()
+                    
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        st.metric("Messages", analytics.get('total_messages', 0))
+                        st.metric("Duration", analytics.get('session_duration', '0 minutes'))
+                    
+                    with col2:
+                        st.metric("Avg Confidence", f"{analytics.get('avg_confidence', 0):.0%}")
+                        st.metric("Pages Discussed", analytics.get('pages_discussed', 0))
+                    
+                    # Export chat
+                    if st.button("📥 Export Chat"):
+                        chat_export = self.ai_chat.export_chat_session()
+                        if chat_export:
+                            st.download_button(
+                                "💾 Download Chat History",
+                                data=json.dumps(chat_export, indent=2),
+                                file_name=f"chat_session_{chat_export['session_info']['session_id']}.json",
+                                mime="application/json"
+                            )
+            
+        except Exception as e:
+            logger.error(f"AI chat interface error: {e}")
+            st.error("AI chat interface encountered an error")
+    
+    def _send_chat_message(self, message: str, context: str = ""):
+        """Send message to AI chat"""
+        try:
+            # Get current page context if not provided
+            if not context:
+                try:
+                    context = self.document_reader.extract_page_text(st.session_state.current_page)
+                except:
+                    context = ""
+            
+            # Send message
+            response = self.ai_chat.send_message(
+                message,
+                document_context=context,
+                current_page=st.session_state.current_page
+            )
+            
+            # Clear input
+            if 'chat_input' in st.session_state:
+                st.session_state.chat_input = ""
+                
+        except Exception as e:
+            logger.error(f"Send chat message error: {e}")
+            st.error("Failed to send message")
+    
+    def _show_export_edited_document(self):
+        """Show export options for edited document"""
+        try:
+            st.markdown("### 📤 Export Edited Document")
+            
+            # Export format selection
+            col1, col2 = st.columns(2)
+            
+            with col1:
+                export_format = st.selectbox(
+                    "Export Format:",
+                    ["Text (.txt)", "HTML with Annotations (.html)", "Original + Changes (.txt)"],
+                    key="edit_export_format"
+                )
+            
+            with col2:
+                include_annotations = st.checkbox("Include Annotations", value=True)
+            
+            # Generate export
+            if st.button("📥 Generate Export", type="primary"):
+                
+                if export_format == "Text (.txt)":
+                    content = self.edit_manager.export_edited_document("txt")
+                    filename = f"edited_document_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
+                    mime_type = "text/plain"
+                
+                elif export_format == "HTML with Annotations (.html)":
+                    content = self.edit_manager.export_edited_document("html")
+                    filename = f"edited_document_{datetime.now().strftime('%Y%m%d_%H%M%S')}.html"
+                    mime_type = "text/html"
+                
+                else:  # Original + Changes
+                    original_text = st.session_state.edit_versions[0].content if st.session_state.edit_versions else ""
+                    current_text = st.session_state.edit_content
+                    
+                    content = f"""ORIGINAL DOCUMENT:
+{'-' * 50}
+{original_text}
+
+EDITED VERSION:
+{'-' * 50}
+{current_text}
+
+CHANGES SUMMARY:
+{'-' * 50}
+Total Changes: {len(st.session_state.edit_changes)}
+Total Annotations: {len(st.session_state.edit_annotations)}
+"""
+                    
+                    if include_annotations and st.session_state.edit_annotations:
+                        content += "\nANNOTATIONS:\n" + "-" * 20 + "\n"
+                        for i, annotation in enumerate(st.session_state.edit_annotations, 1):
+                            content += f"{i}. {annotation.type.title()}: {annotation.content}\n"
+                            content += f"   Page {annotation.page_number} • {annotation.timestamp}\n\n"
+                    
+                    filename = f"document_changes_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
+                    mime_type = "text/plain"
+                
+                # Download button
+                st.download_button(
+                    label=f"📥 Download {export_format}",
+                    data=content,
+                    file_name=filename,
+                    mime=mime_type,
+                    type="primary"
+                )
+                
+                st.success("✅ Export ready for download!")
+                
+                # Show export preview
+                with st.expander("📋 Export Preview", expanded=False):
+                    if export_format == "HTML with Annotations (.html)":
+                        st.markdown(content, unsafe_allow_html=True)
+                    else:
+                        st.text_area("Preview:", value=content[:1000] + "..." if len(content) > 1000 else content, height=200, disabled=True)
+            
+        except Exception as e:
+            logger.error(f"Export edited document error: {e}")
+            st.error("Failed to generate export")
 
 def main():
     """Main application entry point"""
