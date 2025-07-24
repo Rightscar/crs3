@@ -10,6 +10,8 @@ from pathlib import Path
 from ui.pages.character_gallery import render_character_gallery
 from ui.pages.character_chat import render_character_chat
 from ui.pages.character_creation import render_character_creation
+from ui.pages.export_center import render_export_center
+from ui.pages.character_lab import render_character_lab
 
 def render_app():
     """Render the main application"""
@@ -31,6 +33,10 @@ def render_app():
         render_character_chat()
     elif current_page == 'gallery':
         render_character_gallery()
+    elif current_page == 'lab':
+        render_character_lab()
+    elif current_page == 'export':
+        render_export_center()
     else:
         st.error("Page not found")
 
@@ -118,7 +124,7 @@ def render_header():
     """, unsafe_allow_html=True)
     
     # Navigation
-    col1, col2, col3, col4, col5 = st.columns([1, 1, 1, 1, 2])
+    col1, col2, col3, col4, col5, col6, col7 = st.columns([1, 1, 1, 1, 1, 1, 1])
     
     with col1:
         if st.button("🏠 Home", use_container_width=True):
@@ -138,6 +144,16 @@ def render_header():
     with col4:
         if st.button("🎭 Gallery", use_container_width=True):
             st.session_state.current_page = 'gallery'
+            st.rerun()
+    
+    with col5:
+        if st.button("🧪 Lab", use_container_width=True):
+            st.session_state.current_page = 'lab'
+            st.rerun()
+    
+    with col6:
+        if st.button("📤 Export", use_container_width=True):
+            st.session_state.current_page = 'export'
             st.rerun()
 
 def render_home_page():
