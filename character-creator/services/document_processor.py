@@ -1,26 +1,26 @@
 """
-Document Processing Service
-===========================
+Document Processor Service
+==========================
 
-Process various document formats for character extraction.
-Now uses the integration adapter to leverage existing modules.
+Handles document upload, processing, and text extraction using integrated modules.
 """
 
 import os
 import hashlib
-import re
 from pathlib import Path
-from typing import Optional, Dict, Any, List
+from typing import Dict, List, Any, Optional, Tuple
+import json
 
-# Use our integration adapter instead of direct imports
-from integrations.adapters.document_adapter import EnhancedDocumentAdapter
-from integrations.config import integration_config
+# Import performance optimizations
+from fixes.fix_performance import LRUCache, measure_performance
 
 from config.settings import settings, UPLOAD_DIR
 from config.logging_config import logger
 from core.exceptions import DocumentProcessingError
 from core.security import security
 from core.models import DocumentReference
+from integrations.config import integration_config
+from integrations.adapters.document_adapter import EnhancedDocumentAdapter
 
 class DocumentProcessor:
     """Process documents for character extraction using integration adapter"""
@@ -32,9 +32,13 @@ class DocumentProcessor:
         # Get supported formats from config
         self.supported_formats = ['.' + fmt for fmt in integration_config.supported_formats]
         
-    def process_document(self, file_path: str, filename: str) -> Dict[str, Any]:
+        # Initialize cache for processed documents
+        self.cache = LRUCache(max_size=50, ttl=3600)  # 1 hour TTL
+        
+    @measure_performance
+    async def process_document(self, file_path: str, filename: str) -> Dict[str, Any]:
         """
-        Process uploaded document
+        Process uploaded document with caching
         
         Args:
             file_path: Path to uploaded file
@@ -44,6 +48,18 @@ class DocumentProcessor:
             Document data including text and metadata
         """
         try:
+            # Calculate document hash for cache key
+            with open(file_path, 'rb') as f:
+                file_content = f.read()
+                content_hash = security.hash_content(file_content)
+            
+            # Check cache first
+            cache_key = f"doc_{content_hash}"
+            cached_result = await self.cache.get(cache_key)
+            if cached_result:
+                logger.info(f"Cache hit for document: {filename}")
+                return cached_result
+            
             # Validate file
             security.validate_filename(filename)
             
@@ -70,10 +86,6 @@ class DocumentProcessor:
             text = result['text']
             metadata = result['metadata']
             
-            # Calculate document hash
-            with open(file_path, 'rb') as f:
-                content_hash = security.hash_content(f.read())
-            
             # Count words and estimate pages
             word_count = len(text.split())
             page_count = metadata.get('page_count', word_count // 250)  # Estimate if not available
@@ -90,12 +102,18 @@ class DocumentProcessor:
             
             logger.info(f"Processed document: {filename} ({word_count} words, {page_count} pages)")
             
-            return {
+            # Prepare result
+            result_data = {
                 'text': text,
                 'document_reference': doc_ref,
                 'metadata': metadata,
                 'success': True
             }
+            
+            # Cache the result
+            await self.cache.set(cache_key, result_data)
+            
+            return result_data
             
         except Exception as e:
             logger.error(f"Error processing document {filename}: {e}")

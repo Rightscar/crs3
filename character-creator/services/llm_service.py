@@ -72,30 +72,26 @@ class LLMService:
         try:
             # Use adapter if available
             if self.llm_adapter.is_available():
-                # Run async method in sync context
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
+                # Use our improved async handling
+                from fixes.fix_async_concurrency import run_async_in_sync
                 
-                try:
-                    # Add mood context to system prompt
-                    enhanced_system_prompt = system_prompt or ""
-                    if mood and mood != 'neutral':
-                        enhanced_system_prompt += f"\n\nCurrent emotional state: {mood}. Respond accordingly."
-                    
-                    response = loop.run_until_complete(
-                        self.llm_adapter.generate_response(
-                            prompt=prompt,
-                            system_prompt=enhanced_system_prompt,
-                            temperature=temperature or self.temperature,
-                            max_tokens=max_tokens or self.max_tokens
-                        )
+                # Add mood context to system prompt
+                enhanced_system_prompt = system_prompt or ""
+                if mood and mood != 'neutral':
+                    enhanced_system_prompt += f"\n\nCurrent emotional state: {mood}. Respond accordingly."
+                
+                # Run async method safely
+                response = run_async_in_sync(
+                    self.llm_adapter.generate_response(
+                        prompt=prompt,
+                        system_prompt=enhanced_system_prompt,
+                        temperature=temperature or self.temperature,
+                        max_tokens=max_tokens or self.max_tokens
                     )
-                    
-                    logger.info(f"Generated response via adapter: {response[:50]}...")
-                    return response
-                    
-                finally:
-                    loop.close()
+                )
+                
+                logger.info(f"Generated response via adapter: {response[:50]}...")
+                return response
                     
             elif self.client:
                 # Use direct OpenAI client

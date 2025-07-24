@@ -41,6 +41,23 @@ class CharacterChatService:
         self.emotional_memory = EmotionalMemoryCore(character.id)
         self.llm_service = LLMService()
         
+        # Initialize RAG system for character context
+        self.rag_system = None
+        if hasattr(character, 'source_document_id') and character.source_document_id:
+            try:
+                self.rag_system = RAGSystem()
+                # Load document chunks if available
+                db = Database()
+                chunks = db.get_knowledge_chunks(character.source_document_id)
+                if chunks:
+                    self.rag_system.add_documents([
+                        {'content': chunk['content'], 'metadata': chunk.get('metadata', {})}
+                        for chunk in chunks
+                    ])
+                    logger.info(f"Initialized RAG with {len(chunks)} chunks for character {character.id}")
+            except Exception as e:
+                logger.warning(f"Could not initialize RAG for character: {e}")
+        
         # Track conversation state
         self.conversation_id = None
         self.message_count = 0
@@ -224,6 +241,19 @@ class CharacterChatService:
         # Add memory-based instructions
         memory_instructions = self._get_memory_based_instructions()
         
+        # Add RAG context if available
+        rag_context = ""
+        if self.rag_system:
+            try:
+                # Search for relevant context from source material
+                rag_results = self.rag_system.search(user_message, k=3)
+                if rag_results:
+                    rag_context = "\n\nRelevant context from source material:\n"
+                    for result in rag_results[:2]:  # Use top 2 results
+                        rag_context += f"- {result.chunk.content[:200]}...\n"
+            except Exception as e:
+                logger.warning(f"RAG search failed: {e}")
+        
         # Combine all instructions
         full_prompt = f"""
 {system_prompt}
@@ -234,6 +264,7 @@ class CharacterChatService:
 
 Current Context:
 {context}
+{rag_context}
 
 Remember: Stay completely in character. React based on your personality, current mood, and relationship history.
 If you're in a bad mood, show it. If you don't trust the user, be guarded. 

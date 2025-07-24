@@ -1,24 +1,33 @@
 """
-Character Chat Interface
-========================
+Character Chat Page
+===================
 
-Real-time chat interface with emotional memory and engagement tracking.
+Interactive chat interface with AI characters.
 """
 
 import streamlit as st
-import time
 from datetime import datetime
 import json
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Optional
+
+# Import monitoring
+from fixes.fix_production import metrics_collector, cost_tracker
 
 import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from config.logging_config import logger
+from core.exceptions import CharacterCreatorError
 from core.models import Character
 from services.character_chat_service import CharacterChatService
 from services.llm_service import LLMService
+from ui.components.chat_components import (
+    render_chat_message,
+    render_typing_indicator,
+    render_emotion_indicator
+)
+from ui.utils.style_utils import apply_custom_css
 
 
 def render_character_chat():
@@ -80,6 +89,28 @@ def render_character_chat():
     # Debug info (if enabled)
     if st.checkbox("🔍 Show Debug Info", value=False):
         render_debug_info(chat_service)
+    
+    # Monitoring dashboard
+    with st.expander("📊 Performance Metrics"):
+        # Get current stats
+        stats = metrics_collector.get_stats()
+        cost_report = cost_tracker.get_report()
+        
+        # Display metrics
+        col1, col2 = st.columns(2)
+        with col1:
+            st.metric("Total Requests", stats['total_requests'])
+            st.metric("Error Rate", f"{stats['error_rate_percent']:.1f}%")
+        
+        with col2:
+            st.metric("Total Cost", f"${cost_report['total_cost']:.2f}")
+            st.metric("Budget Used", f"{cost_report['budget_used_percent']:.1f}%")
+        
+        # Latency stats
+        if 'chat_response' in stats['latency_stats']:
+            latency = stats['latency_stats']['chat_response']
+            st.metric("Avg Response Time", f"{latency['mean']:.2f}s")
+            st.caption(f"Min: {latency['min']:.2f}s | Max: {latency['max']:.2f}s")
 
 
 def apply_chat_css():
@@ -307,6 +338,9 @@ def render_chat_input(chat_service: CharacterChatService):
     
     # Handle message sending
     if send_button and user_input:
+        # Track request
+        metrics_collector.track_request('/chat/message', 'POST')
+        
         # Add user message
         st.session_state.chat_messages.append({
             'role': 'user',
@@ -316,8 +350,15 @@ def render_chat_input(chat_service: CharacterChatService):
         
         # Show typing indicator
         with st.spinner(""):
-            # Generate response
-            response_data = chat_service.generate_response(user_input)
+            # Track latency
+            with metrics_collector.track_latency('chat_response'):
+                # Generate response
+                response_data = chat_service.generate_response(user_input)
+            
+            # Track token usage (estimate)
+            input_tokens = len(user_input.split()) * 2  # Rough estimate
+            output_tokens = len(response_data['response'].split()) * 2
+            cost_tracker.track_usage('gpt-3.5-turbo', input_tokens, output_tokens)
             
             # Check for memory triggers
             memory_trigger = None
@@ -333,6 +374,11 @@ def render_chat_input(chat_service: CharacterChatService):
                 'emotional_state': response_data['emotional_state'],
                 'memory_trigger': memory_trigger
             })
+            
+            # Track custom metrics
+            metrics_collector.track_custom('message_length', len(response_data['response']))
+            metrics_collector.track_custom('emotional_intensity', 
+                                         response_data.get('emotional_intensity', 0.5))
         
         # Clear input and rerun
         st.rerun()
