@@ -91,6 +91,41 @@ def render_character_gallery():
         text-overflow: ellipsis;
     }
     
+    .character-dna {
+        font-size: 0.75rem;
+        color: #667eea;
+        font-style: italic;
+        margin-bottom: 0.5rem;
+    }
+    
+    .quirk-badge {
+        display: inline-block;
+        background: rgba(102, 126, 234, 0.2);
+        border: 1px solid rgba(102, 126, 234, 0.5);
+        border-radius: 12px;
+        padding: 0.25rem 0.5rem;
+        margin: 0.25rem 0.25rem 0.25rem 0;
+        font-size: 0.7rem;
+        color: #a8b9ff;
+    }
+    
+    .uniqueness-indicator {
+        position: absolute;
+        top: 0.5rem;
+        right: 0.5rem;
+        background: linear-gradient(45deg, #667eea, #764ba2);
+        color: white;
+        border-radius: 50%;
+        width: 2.5rem;
+        height: 2.5rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 600;
+        font-size: 0.875rem;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+    }
+    
     .character-stats {
         display: flex;
         justify-content: space-between;
@@ -260,13 +295,25 @@ def render_character_gallery():
         grid_html = '<div class="character-grid">'
         
         for char in filtered_characters:
+            # Get character DNA and quirks
+            character_dna = char.get('character_dna', {})
+            quirks = char.get('quirks_mannerisms', [])[:2]  # Show top 2 quirks
+            uniqueness = char.get('uniqueness_score', 0)
+            
+            # Create quirk badges HTML
+            quirk_badges = ''.join([f'<span class="quirk-badge">{quirk}</span>' for quirk in quirks])
+            
             # Generate character card HTML
             card_html = f"""
             <div class="character-card" onclick="selectCharacter('{char['name']}')">
+                {f'<div class="uniqueness-indicator">{int(uniqueness * 100)}%</div>' if uniqueness > 0.5 else ''}
                 <div class="character-avatar">{char['avatar']}</div>
                 <div class="character-name">{char['name']}</div>
                 <div class="character-role">{char['role']}</div>
+                <div class="character-dna">{character_dna.get('character_essence', '')}</div>
                 <div class="character-description">{char['description']}</div>
+                
+                {f'<div style="margin-bottom: 0.5rem;">{quirk_badges}</div>' if quirks else ''}
                 
                 <div class="character-stats">
                     <div class="stat-item">
@@ -331,26 +378,58 @@ def render_character_gallery():
                             """, unsafe_allow_html=True)
                         
                         with col2:
-                            st.markdown("**Description:**")
-                            st.write(selected_char['description'])
+                            # Character DNA
+                            dna = selected_char.get('character_dna', {})
+                            if dna:
+                                st.markdown("**Character DNA:**")
+                                st.write(dna.get('core_identity', 'Unknown'))
+                                
+                                # Personality Matrix
+                                if dna.get('personality_matrix'):
+                                    st.markdown("**Personality Traits:**")
+                                    matrix = dna['personality_matrix']
+                                    
+                                    # Show extreme traits
+                                    extreme_traits = []
+                                    for trait, value in matrix.items():
+                                        trait_name = trait.replace('_', ' ').title()
+                                        if value > 0.7:
+                                            extreme_traits.append(f"• Very {trait_name.split()[1]}")
+                                        elif value < 0.3:
+                                            extreme_traits.append(f"• Very {trait_name.split()[0]}")
+                                    
+                                    if extreme_traits:
+                                        for trait in extreme_traits[:4]:
+                                            st.write(trait)
                             
-                            st.markdown("**Speaking Style:**")
-                            st.write(selected_char['speaking_style'])
+                            # Unique Quirks
+                            quirks = selected_char.get('quirks_mannerisms', [])
+                            if quirks:
+                                st.markdown("**Unique Quirks:**")
+                                for quirk in quirks[:3]:
+                                    st.write(f"• {quirk}")
+                            
+                            # Speech Patterns
+                            speech = selected_char.get('speech_patterns', {})
+                            if speech:
+                                st.markdown("**Speech Patterns:**")
+                                if speech.get('verbal_tics'):
+                                    st.write(f"• Uses {', '.join(speech['verbal_tics'][:2])}")
+                                if speech.get('favorite_words'):
+                                    words = list(speech['favorite_words'].keys())[:3]
+                                    st.write(f"• Often says: {', '.join(words)}")
+                                st.write(f"• {speech.get('speech_rhythm', 'Normal')} speaker")
+                            
+                            # Values & Beliefs
+                            values = selected_char.get('values_beliefs', {})
+                            if values and values.get('moral_code'):
+                                st.markdown("**Core Values:**")
+                                st.write(values['moral_code'])
                             
                             if selected_char['key_quotes']:
-                                st.markdown("**Sample Quotes:**")
+                                st.markdown("**Signature Quotes:**")
                                 for quote in selected_char['key_quotes'][:2]:
                                     st.info(f'"{quote}"')
-                            
-                            if selected_char['relationships']:
-                                st.markdown("**Key Relationships:**")
-                                relationships = sorted(
-                                    selected_char['relationships'].items(),
-                                    key=lambda x: x[1],
-                                    reverse=True
-                                )[:3]
-                                for rel_name, count in relationships:
-                                    st.write(f"• {rel_name} ({count} interactions)")
                     
                     # Create AI button
                     if st.button(

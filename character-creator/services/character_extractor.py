@@ -17,6 +17,7 @@ from nltk.tag import pos_tag
 from config.logging_config import logger
 from core.models import Character, PersonalityProfile
 from core.exceptions import DocumentProcessingError
+from .character_analyzer import CharacterAnalyzer
 
 class CharacterExtractor:
     """Extract characters from documents using NLP"""
@@ -32,6 +33,9 @@ class CharacterExtractor:
             subprocess.run(["python", "-m", "spacy", "download", "en_core_web_sm"])
             self.nlp = spacy.load("en_core_web_sm")
         
+        # Initialize character analyzer
+        self.analyzer = CharacterAnalyzer()
+        
         # Character data storage
         self.characters = {}
         self.character_mentions = defaultdict(list)
@@ -39,6 +43,7 @@ class CharacterExtractor:
         self.character_dialogues = defaultdict(list)
         self.character_actions = defaultdict(list)
         self.character_descriptions = defaultdict(list)
+        self.character_contexts = defaultdict(list)
         
     def extract_characters(self, text: str, min_mentions: int = 3) -> List[Dict[str, Any]]:
         """
@@ -71,13 +76,35 @@ class CharacterExtractor:
         # Filter and rank characters
         characters = self._filter_characters(min_mentions)
         
-        # Generate character profiles
+        # Generate character profiles with deep analysis
         character_profiles = []
         for char_name, char_data in characters.items():
-            profile = self._generate_character_profile(char_name, char_data)
-            character_profiles.append(profile)
+            # Basic profile
+            basic_profile = self._generate_character_profile(char_name, char_data)
+            
+            # Deep analysis
+            deep_analysis = self.analyzer.analyze_character_depth(
+                char_name, 
+                text,
+                char_data['dialogues'],
+                self.character_contexts[char_name]
+            )
+            
+            # Merge profiles
+            enhanced_profile = {
+                **basic_profile,
+                'character_dna': deep_analysis['character_dna'],
+                'speech_patterns': deep_analysis['speech_patterns'],
+                'emotional_profile': deep_analysis['emotional_profile'],
+                'unique_behaviors': deep_analysis['unique_behaviors'],
+                'quirks_mannerisms': deep_analysis['quirks_mannerisms'],
+                'values_beliefs': deep_analysis['values_beliefs'],
+                'uniqueness_score': deep_analysis['uniqueness_score']
+            }
+            
+            character_profiles.append(enhanced_profile)
         
-        logger.info(f"Extracted {len(character_profiles)} characters")
+        logger.info(f"Extracted {len(character_profiles)} characters with deep analysis")
         return character_profiles
     
     def _extract_entities(self, doc):
@@ -95,6 +122,9 @@ class CharacterExtractor:
                     'start': ent.start_char,
                     'end': ent.end_char
                 })
+                
+                # Store context for deep analysis
+                self.character_contexts[char_name].append(context)
     
     def _extract_dialogues(self, text: str):
         """Extract character dialogues"""

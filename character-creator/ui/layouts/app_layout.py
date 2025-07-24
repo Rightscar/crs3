@@ -7,6 +7,7 @@ Main layout structure for the character creator app.
 
 import streamlit as st
 from pathlib import Path
+from ui.pages.character_gallery import render_character_gallery
 
 def render_app():
     """Render the main application"""
@@ -27,7 +28,7 @@ def render_app():
     elif current_page == 'chat':
         st.info("🚧 Chat interface coming in Phase 4!")
     elif current_page == 'gallery':
-        st.info("🚧 Character gallery coming in Phase 3!")
+        render_character_gallery()
     else:
         st.error("Page not found")
 
