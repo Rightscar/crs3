@@ -1,0 +1,92 @@
+2025-07-24 16:34:07 - character_creator - [32mINFO[0m - <module>:117 - ==================================================
+2025-07-24 16:34:07 - character_creator - [32mINFO[0m - <module>:118 - Character Creator Starting
+2025-07-24 16:34:07 - character_creator - [32mINFO[0m - <module>:119 - Debug Mode: True
+2025-07-24 16:34:07 - character_creator - [32mINFO[0m - <module>:120 - Log Level: INFO
+2025-07-24 16:34:07 - character_creator - [32mINFO[0m - <module>:121 - ==================================================
+2025-07-24 16:34:07 - character_creator - [32mINFO[0m - init_database:200 - Database initialized successfully
+2025-07-24 16:34:07 - character_creator - [32mINFO[0m - init_database:200 - Database initialized successfully
+2025-07-24 16:34:07 - character_creator - [32mINFO[0m - init_database:200 - Database initialized successfully
+2025-07-24 16:34:07 - character_creator - [32mINFO[0m - save_evolution_record:474 - Saved evolution record for character test-char-001
+2025-07-24 16:34:07 - character_creator - [32mINFO[0m - login:45 - User demo logged in
+2025-07-24 16:34:07 - character_creator - [33mWARNING[0m - check_rate_limit:90 - Rate limit exceeded for user test-user on api_call
+2025-07-24 16:34:07 - character_creator - [33mWARNING[0m - check_rate_limit:90 - Rate limit exceeded for user test-user on api_call
+2025-07-24 16:34:07 - character_creator - [33mWARNING[0m - check_rate_limit:90 - Rate limit exceeded for user test-user on api_call
+2025-07-24 16:34:07 - character_creator - [33mWARNING[0m - check_rate_limit:90 - Rate limit exceeded for user test-user on api_call
+2025-07-24 16:34:07 - character_creator - [33mWARNING[0m - check_rate_limit:90 - Rate limit exceeded for user test-user on api_call
+2025-07-24 16:34:07 - character_creator - [33mWARNING[0m - check_rate_limit:90 - Rate limit exceeded for user test-user on api_call
+2025-07-24 16:34:07 - character_creator - [33mWARNING[0m - check_rate_limit:90 - Rate limit exceeded for user test-user on api_call
+2025-07-24 16:34:07 - character_creator - [33mWARNING[0m - check_rate_limit:90 - Rate limit exceeded for user test-user on api_call
+2025-07-24 16:34:07 - character_creator - [33mWARNING[0m - check_rate_limit:90 - Rate limit exceeded for user test-user on api_call
+2025-07-24 16:34:07 - character_creator - [33mWARNING[0m - check_rate_limit:90 - Rate limit exceeded for user test-user on api_call
+2025-07-24 16:34:07 - character_creator - [33mWARNING[0m - check_rate_limit:90 - Rate limit exceeded for user test-user on api_call
+2025-07-24 16:34:41 - character_creator - [32mINFO[0m - <module>:117 - ==================================================
+2025-07-24 16:34:41 - character_creator - [32mINFO[0m - <module>:118 - Character Creator Starting
+2025-07-24 16:34:41 - character_creator - [32mINFO[0m - <module>:119 - Debug Mode: True
+2025-07-24 16:34:41 - character_creator - [32mINFO[0m - <module>:120 - Log Level: INFO
+2025-07-24 16:34:41 - character_creator - [32mINFO[0m - <module>:121 - ==================================================
+2025-07-24 16:34:41 - character_creator - [32mINFO[0m - init_database:200 - Database initialized successfully
+2025-07-24 16:34:41 - character_creator - [32mINFO[0m - init_database:200 - Database initialized successfully
+2025-07-24 16:34:41 - character_creator - [32mINFO[0m - init_database:200 - Database initialized successfully
+2025-07-24 16:34:41 - character_creator - [32mINFO[0m - save_evolution_record:474 - Saved evolution record for character test-char-001
+2025-07-24 16:34:41 - character_creator - [32mINFO[0m - login:45 - User demo logged in
+2025-07-24 16:34:41 - character_creator - [33mWARNING[0m - check_rate_limit:90 - Rate limit exceeded for user test-user on api_call
+2025-07-24 16:34:41 - character_creator - [33mWARNING[0m - check_rate_limit:90 - Rate limit exceeded for user test-user on api_call
+2025-07-24 16:34:41 - character_creator - [33mWARNING[0m - check_rate_limit:90 - Rate limit exceeded for user test-user on api_call
+2025-07-24 16:34:41 - character_creator - [33mWARNING[0m - check_rate_limit:90 - Rate limit exceeded for user test-user on api_call
+2025-07-24 16:34:41 - character_creator - [33mWARNING[0m - check_rate_limit:90 - Rate limit exceeded for user test-user on api_call
+2025-07-24 16:34:41 - character_creator - [33mWARNING[0m - check_rate_limit:90 - Rate limit exceeded for user test-user on api_call
+2025-07-24 16:34:41 - character_creator - [33mWARNING[0m - check_rate_limit:90 - Rate limit exceeded for user test-user on api_call
+2025-07-24 16:34:41 - character_creator - [33mWARNING[0m - check_rate_limit:90 - Rate limit exceeded for user test-user on api_call
+2025-07-24 16:34:41 - character_creator - [33mWARNING[0m - check_rate_limit:90 - Rate limit exceeded for user test-user on api_call
+2025-07-24 16:34:41 - character_creator - [33mWARNING[0m - check_rate_limit:90 - Rate limit exceeded for user test-user on api_call
+2025-07-24 16:34:41 - character_creator - [33mWARNING[0m - check_rate_limit:90 - Rate limit exceeded for user test-user on api_call
+2025-07-24 16:34:59 - character_creator - [32mINFO[0m - <module>:117 - ==================================================
+2025-07-24 16:34:59 - character_creator - [32mINFO[0m - <module>:118 - Character Creator Starting
+2025-07-24 16:34:59 - character_creator - [32mINFO[0m - <module>:119 - Debug Mode: True
+2025-07-24 16:34:59 - character_creator - [32mINFO[0m - <module>:120 - Log Level: INFO
+2025-07-24 16:34:59 - character_creator - [32mINFO[0m - <module>:121 - ==================================================
+2025-07-24 16:34:59 - character_creator - [32mINFO[0m - init_database:200 - Database initialized successfully
+2025-07-24 16:34:59 - character_creator - [32mINFO[0m - init_database:200 - Database initialized successfully
+2025-07-24 16:36:19 - character_creator - [32mINFO[0m - <module>:117 - ==================================================
+2025-07-24 16:36:19 - character_creator - [32mINFO[0m - <module>:118 - Character Creator Starting
+2025-07-24 16:36:19 - character_creator - [32mINFO[0m - <module>:119 - Debug Mode: True
+2025-07-24 16:36:19 - character_creator - [32mINFO[0m - <module>:120 - Log Level: INFO
+2025-07-24 16:36:19 - character_creator - [32mINFO[0m - <module>:121 - ==================================================
+2025-07-24 16:36:19 - character_creator - [32mINFO[0m - init_database:200 - Database initialized successfully
+2025-07-24 16:36:19 - character_creator - [32mINFO[0m - init_database:200 - Database initialized successfully
+2025-07-24 16:36:59 - character_creator - [32mINFO[0m - <module>:117 - ==================================================
+2025-07-24 16:36:59 - character_creator - [32mINFO[0m - <module>:118 - Character Creator Starting
+2025-07-24 16:36:59 - character_creator - [32mINFO[0m - <module>:119 - Debug Mode: True
+2025-07-24 16:36:59 - character_creator - [32mINFO[0m - <module>:120 - Log Level: INFO
+2025-07-24 16:36:59 - character_creator - [32mINFO[0m - <module>:121 - ==================================================
+2025-07-24 16:36:59 - character_creator - [32mINFO[0m - init_database:200 - Database initialized successfully
+2025-07-24 16:36:59 - character_creator - [32mINFO[0m - init_database:200 - Database initialized successfully
+2025-07-24 16:37:25 - character_creator - [32mINFO[0m - <module>:117 - ==================================================
+2025-07-24 16:37:25 - character_creator - [32mINFO[0m - <module>:118 - Character Creator Starting
+2025-07-24 16:37:25 - character_creator - [32mINFO[0m - <module>:119 - Debug Mode: True
+2025-07-24 16:37:25 - character_creator - [32mINFO[0m - <module>:120 - Log Level: INFO
+2025-07-24 16:37:25 - character_creator - [32mINFO[0m - <module>:121 - ==================================================
+2025-07-24 16:37:25 - character_creator - [32mINFO[0m - init_database:200 - Database initialized successfully
+2025-07-24 16:37:25 - character_creator - [32mINFO[0m - init_database:200 - Database initialized successfully
+2025-07-24 16:37:34 - character_creator - [32mINFO[0m - __init__:43 - OpenAI client initialized as backup
+2025-07-24 16:37:42 - character_creator - [32mINFO[0m - <module>:117 - ==================================================
+2025-07-24 16:37:42 - character_creator - [32mINFO[0m - <module>:118 - Character Creator Starting
+2025-07-24 16:37:42 - character_creator - [32mINFO[0m - <module>:119 - Debug Mode: True
+2025-07-24 16:37:42 - character_creator - [32mINFO[0m - <module>:120 - Log Level: INFO
+2025-07-24 16:37:42 - character_creator - [32mINFO[0m - <module>:121 - ==================================================
+2025-07-24 16:37:42 - character_creator - [32mINFO[0m - init_database:200 - Database initialized successfully
+2025-07-24 16:37:42 - character_creator - [32mINFO[0m - init_database:200 - Database initialized successfully
+2025-07-24 16:37:42 - character_creator - [32mINFO[0m - init_database:200 - Database initialized successfully
+2025-07-24 16:37:42 - character_creator - [32mINFO[0m - save_evolution_record:474 - Saved evolution record for character test-char-001
+2025-07-24 16:37:42 - character_creator - [32mINFO[0m - login:45 - User demo logged in
+2025-07-24 16:37:42 - character_creator - [33mWARNING[0m - check_rate_limit:90 - Rate limit exceeded for user test-user on api_call
+2025-07-24 16:37:42 - character_creator - [33mWARNING[0m - check_rate_limit:90 - Rate limit exceeded for user test-user on api_call
+2025-07-24 16:37:42 - character_creator - [33mWARNING[0m - check_rate_limit:90 - Rate limit exceeded for user test-user on api_call
+2025-07-24 16:37:42 - character_creator - [33mWARNING[0m - check_rate_limit:90 - Rate limit exceeded for user test-user on api_call
+2025-07-24 16:37:42 - character_creator - [33mWARNING[0m - check_rate_limit:90 - Rate limit exceeded for user test-user on api_call
+2025-07-24 16:37:42 - character_creator - [33mWARNING[0m - check_rate_limit:90 - Rate limit exceeded for user test-user on api_call
+2025-07-24 16:37:42 - character_creator - [33mWARNING[0m - check_rate_limit:90 - Rate limit exceeded for user test-user on api_call
+2025-07-24 16:37:42 - character_creator - [33mWARNING[0m - check_rate_limit:90 - Rate limit exceeded for user test-user on api_call
+2025-07-24 16:37:42 - character_creator - [33mWARNING[0m - check_rate_limit:90 - Rate limit exceeded for user test-user on api_call
+2025-07-24 16:37:42 - character_creator - [33mWARNING[0m - check_rate_limit:90 - Rate limit exceeded for user test-user on api_call
+2025-07-24 16:37:42 - character_creator - [33mWARNING[0m - check_rate_limit:90 - Rate limit exceeded for user test-user on api_call
