@@ -3,8 +3,11 @@ services:
     name: universal-document-reader
     env: python
     runtime: python-3.11.9
-    buildCommand: pip install --upgrade pip && pip install -r requirements.txt
-    startCommand: streamlit run app.py --server.port=$PORT --server.address=0.0.0.0 --server.headless=true
+    buildCommand: |
+      pip install --upgrade pip setuptools wheel &&
+      pip install -r requirements_deployment.txt --no-cache-dir --timeout 300 &&
+      python startup_check.py
+    startCommand: streamlit run app.py --server.port=$PORT --server.address=0.0.0.0 --server.headless=true --server.enableCORS=false
     envVars:
       - key: STREAMLIT_SERVER_HEADLESS
         value: true
@@ -14,4 +17,26 @@ services:
         value: false
       - key: STREAMLIT_SERVER_ENABLE_XSRF_PROTECTION
         value: false
+      - key: PYTHONUNBUFFERED
+        value: "1"
+      - key: STREAMLIT_SERVER_PORT
+        value: $PORT
+      - key: MAX_FILE_SIZE_MB
+        value: "50"
+      - key: CACHE_TTL
+        value: "1800"
+      - key: MAX_MEMORY_MB
+        value: "256"
+      - key: DEBUG
+        value: "false"
+      - key: LOG_LEVEL
+        value: "INFO"
+      - key: ENABLE_CACHING
+        value: "true"
+      - key: USE_ENHANCED_OCR
+        value: "false"
+      - key: SECRET_KEY
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
     plan: free

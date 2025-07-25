@@ -33,7 +33,12 @@ st.set_page_config(
 )
 
 # Apply emergency CSS fixes
-st.markdown(open('styles/emergency_fixes.css').read(), unsafe_allow_html=True)
+try:
+    with open('styles/emergency_fixes.css', 'r') as f:
+        st.markdown(f.read(), unsafe_allow_html=True)
+except FileNotFoundError:
+    # CSS file not found - continue without styles
+    pass
 
 
 # Import our modules

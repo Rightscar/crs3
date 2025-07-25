@@ -1,0 +1,45 @@
+# Deployment Requirements - Conservative Versions for Python 3.11
+# ================================================================
+
+# Core Dependencies
+streamlit==1.29.0
+python-dotenv==1.0.0
+
+# Document Processing - Conservative versions
+PyPDF2==3.0.1
+python-docx==1.1.0
+ebooklib==0.18
+striprtf==0.0.26
+beautifulsoup4==4.12.2
+Pillow>=9.5.0,<11.0.0
+pytesseract==0.3.10
+
+# Use fitz instead of PyMuPDF to avoid build issues
+pymupdf==1.23.8
+
+# NLP & AI - Essential only
+nltk==3.8.1
+textblob==0.17.1
+numpy>=1.24.0,<2.0.0
+pandas>=2.0.0,<3.0.0
+
+# LLM Integration
+openai>=1.0.0,<2.0.0
+tiktoken>=0.5.0,<1.0.0
+
+# Database
+sqlalchemy>=2.0.0,<3.0.0
+
+# Security - Essential
+cryptography>=40.0.0
+
+# Production Server
+gunicorn>=21.0.0
+
+# Additional Utilities
+python-multipart>=0.0.6
+httpx>=0.25.0
+pydantic>=2.0.0,<3.0.0
+
+# Monitoring
+sentry-sdk>=1.0.0

@@ -1,41 +1,50 @@
-# Ultra-Minimal Requirements for Render - Python 3.11 Compatible
-# ==============================================================
-
-# Core Framework (Essential)
-streamlit==1.47.0
-streamlit-option-menu==0.4.0
-
-# Data Processing (Essential)
-pandas==2.1.4
-numpy==1.25.2
+# Core Dependencies for Deployment
+streamlit==1.29.0
 python-dotenv==1.0.0
 
-# Document Processing (Core)
-PyMuPDF==1.23.26
+# Document Processing
+PyPDF2==3.0.1
 python-docx==1.1.0
-Pillow==10.4.0
+ebooklib==0.18
+striprtf==0.0.26
+beautifulsoup4==4.12.2
+Pillow==10.2.0
+pytesseract==0.3.10
+PyMuPDF==1.23.8
 
-# Basic NLP
+# NLP & AI (Essential only)
+spacy==3.7.2
 nltk==3.8.1
+textblob==0.17.1
+sentence-transformers==2.2.2
+scikit-learn==1.3.2
+numpy==1.26.2
+pandas==2.1.4
 
-# OpenAI (Optional)
-openai==1.30.0
+# LLM Integration
+openai==1.6.1
+anthropic==0.8.1
+tiktoken==0.5.2
 
-# Web & API
-requests==2.31.0
+# Database
+sqlalchemy==2.0.23
 
-# Export
-openpyxl==3.1.2
-markdown==3.5.2
-jinja2==3.1.4
-
-# Utilities
-tqdm==4.66.4
-python-dateutil==2.9.0
+# Caching & Performance
+diskcache==5.6.3
 
 # Security
-validators==0.22.0
-bleach==6.1.0
+cryptography==41.0.7
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
 
-# Deployment
+# Production Server
 gunicorn==21.2.0
+
+# Additional Utilities
+python-multipart==0.0.6
+aiofiles==23.2.1
+httpx==0.25.2
+pydantic==2.5.2
+
+# Monitoring
+sentry-sdk==1.39.1
