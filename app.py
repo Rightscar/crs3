@@ -32,6 +32,10 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+# Apply emergency CSS fixes
+st.markdown(open('styles/emergency_fixes.css').read(), unsafe_allow_html=True)
+
+
 # Import our modules
 try:
     from modules.universal_document_reader import UniversalDocumentReader, DocumentMetadata, DocumentPage
@@ -49,6 +53,32 @@ try:
 except ImportError as e:
     st.error(f"❌ Module import error: {e}")
     st.stop()
+
+# Import new components
+
+    from components.hamburger_menu import get_hamburger_menu, get_context_sidebar
+    from components.progressive_disclosure import get_progressive_disclosure, get_feature_hints
+    from components.toast_notifications import toast_success, toast_error, toast_info, get_toast_system
+    from components.skeleton_loaders import LoadingContext, get_skeleton_loader
+    from components.accessibility_enhancements import get_accessibility_enhancer, announce_to_screen_reader
+try:
+    from components.session_state_fix import init_session_state, safe_get, safe_set, with_error_boundary
+    from components.persistent_preferences import get_preferences, apply_all_preferences
+
+    from components.cancellable_processor import get_cancellable_processor, make_cancellable
+    from components.keyboard_navigation import get_keyboard_navigation, render_memory_status
+    from components.error_recovery import get_error_recovery, safe_execute, with_error_recovery
+    from components.mobile_optimizer import get_mobile_optimizer, is_mobile_device, optimize_for_device
+except ImportError:
+    # Fallback if new components not available
+    def init_session_state():
+        ensure_session_state()
+    def safe_get(key, default=None):
+        return st.session_state.get(key, default)
+    def safe_set(key, value):
+        st.session_state[key] = value
+    def with_error_boundary(func):
+        return func
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -85,18 +115,73 @@ def ensure_session_state():
                 # Fallback for any edge cases
                 setattr(st.session_state, key, default_value)
 
-# Call immediately to prevent any access before initialization
-ensure_session_state()
+# Initialize session state with new robust manager
+init_session_state()
 logger = logging.getLogger(__name__)
+
+# Apply saved preferences on startup
+try:
+    apply_all_preferences()
+
+
+# Initialize Week 1 components
+try:
+    # Initialize error recovery first
+    error_recovery = get_error_recovery()
+    
+    # Initialize keyboard navigation
+    keyboard_nav = get_keyboard_navigation()
+    
+    # Initialize mobile optimizer
+    mobile_optimizer = get_mobile_optimizer()
+    
+    # Initialize cancellable processor
+    processor = get_cancellable_processor()
+    
+    logger.info("Week 1 components initialized")
+
+
+# Initialize Week 2 components
+try:
+    # Initialize hamburger menu
+    hamburger_menu = get_hamburger_menu()
+    context_sidebar = get_context_sidebar()
+    
+    # Initialize progressive disclosure
+    disclosure = get_progressive_disclosure()
+    hints = get_feature_hints()
+    
+    # Initialize toast system
+    toast_system = get_toast_system()
+    
+    # Initialize skeleton loader
+    skeleton = get_skeleton_loader()
+    
+    # Initialize accessibility
+    accessibility = get_accessibility_enhancer()
+    
+    logger.info("Week 2 components initialized")
+except Exception as e:
+    logger.warning(f"Failed to initialize Week 2 components: {e}")
+except Exception as e:
+    logger.warning(f"Failed to initialize Week 1 components: {e}")
+except Exception as e:
+    logger.warning(f"Failed to apply preferences: {e}")
 
 # Load environment variables
 from dotenv import load_dotenv
 load_dotenv()
 
-# Custom CSS for three-panel layout
-st.markdown("""
+# Load improved CSS
+try:
+    with open('styles/improved_styles.css', 'r') as f:
+        improved_css = f.read()
+        st.markdown(f"<style>{improved_css}</style>", unsafe_allow_html=True)
+except FileNotFoundError:
+    # Fallback to inline CSS
+    st.markdown("""
 <style>
-    @import url("https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600;700&display=swap");
+    @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");
     
     .main { 
         font-family: "Roboto", "Inter", sans-serif; 
