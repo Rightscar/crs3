@@ -6,9 +6,14 @@ Provides customizable GPT prompts and configuration per file processing.
 import streamlit as st
 import os
 import json
+import re
 from typing import Dict, Any, List, Optional
 from dataclasses import dataclass, asdict
 import time
+from pathlib import Path
+import logging
+
+logger = logging.getLogger(__name__)
 
 @dataclass
 class GPTConfig:
@@ -32,8 +37,10 @@ class GPTConfigInterface:
     
     def __init__(self):
         """Initialize the GPT configuration interface"""
-        self.config_presets = self._load_config_presets()
-        self.current_config = None
+        self.config_file = Path("config/gpt_presets.json")
+        self.current_config: Optional[GPTConfig] = None
+        self.custom_presets: Dict[str, GPTConfig] = {}
+        self._load_custom_presets()
         
     def _load_config_presets(self) -> Dict[str, GPTConfig]:
         """Load predefined configuration presets"""
@@ -460,6 +467,47 @@ Make the interview engaging and informative.""",
             base_config.temperature = min(0.8, base_config.temperature + 0.1)
         
         return base_config
+
+    def sanitize_input(self, text: str) -> str:
+        """Sanitize user input to prevent prompt injection"""
+        if not text:
+            return ""
+        
+        # Remove or escape potentially dangerous patterns
+        dangerous_patterns = [
+            # Common prompt injection patterns
+            r'(ignore|forget|disregard)\s+(all\s+)?(previous|prior|above)\s+(instructions?|prompts?|rules?)',
+            r'(new|different)\s+(instructions?|task|role)',
+            r'(you\s+are\s+now|act\s+as|pretend\s+to\s+be)',
+            r'(system|admin|root)\s*(mode|access|prompt)',
+            # Attempts to reveal system prompts
+            r'(show|reveal|display|print)\s+(the\s+)?(system|original|initial)\s+(prompt|instructions?)',
+            r'what\s+(are|were)\s+your\s+(original\s+)?(instructions?|prompts?)',
+            # Attempts to bypass restrictions
+            r'(bypass|override|ignore)\s+(safety|security|restrictions?)',
+            # Code injection attempts
+            r'<script[^>]*>.*?</script>',
+            r'javascript:',
+            r'eval\s*\(',
+            r'exec\s*\(',
+        ]
+        
+        sanitized = text
+        for pattern in dangerous_patterns:
+            # Replace dangerous patterns with harmless placeholders
+            sanitized = re.sub(pattern, '[REMOVED FOR SECURITY]', sanitized, flags=re.IGNORECASE)
+        
+        # Escape special characters that could be used for prompt manipulation
+        # But preserve common punctuation for readability
+        sanitized = sanitized.replace('\\', '\\\\')  # Escape backslashes
+        sanitized = sanitized.replace('"', '\\"')    # Escape quotes
+        
+        # Limit length to prevent resource exhaustion
+        max_length = 10000
+        if len(sanitized) > max_length:
+            sanitized = sanitized[:max_length] + "... [TRUNCATED]"
+        
+        return sanitized
 
 # Global instance
 gpt_config_interface = GPTConfigInterface()

@@ -18,11 +18,15 @@ import streamlit as st
 import os
 import sys
 import time
-import json
 import logging
 from typing import Dict, List, Any, Optional
 from datetime import datetime
 from pathlib import Path
+import re
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 # Configure page first
 st.set_page_config(
@@ -34,30 +38,150 @@ st.set_page_config(
 
 # Apply emergency CSS fixes
 try:
-    with open('styles/emergency_fixes.css', 'r') as f:
-        st.markdown(f.read(), unsafe_allow_html=True)
-except FileNotFoundError:
-    # CSS file not found - continue without styles
-    pass
-
+    # Validate file path to prevent directory traversal
+    css_file_path = 'styles/emergency_fixes.css'
+    
+    # Ensure the path is within the expected directory
+    abs_css_path = os.path.abspath(css_file_path)
+    expected_dir = os.path.abspath('styles')
+    
+    if not abs_css_path.startswith(expected_dir):
+        raise ValueError("Invalid CSS file path")
+    
+    if os.path.exists(abs_css_path) and os.path.isfile(abs_css_path):
+        with open(abs_css_path, 'r', encoding='utf-8') as f:
+            css_content = f.read()
+            
+            # Sanitize CSS content to prevent XSS
+            # Remove any script tags, javascript: protocols, and other dangerous content
+            dangerous_patterns = [
+                r'<script[^>]*>.*?</script>',  # Script tags
+                r'javascript:',  # JavaScript protocol
+                r'expression\s*\(',  # CSS expressions (IE)
+                r'@import',  # Prevent external imports
+                r'behavior\s*:',  # IE behaviors
+                r'binding\s*:',  # Mozilla bindings
+                r'-moz-binding',  # Mozilla bindings
+                r'vbscript:',  # VBScript protocol
+                r'data:text/html',  # Data URLs with HTML
+                r'<iframe',  # iframes
+                r'<object',  # objects
+                r'<embed',  # embeds
+                r'<link',  # link tags
+                r'<meta',  # meta tags
+            ]
+            
+            # Remove dangerous patterns
+            for pattern in dangerous_patterns:
+                css_content = re.sub(pattern, '', css_content, flags=re.IGNORECASE | re.DOTALL)
+            
+            # Additional validation: ensure it looks like CSS
+            # Check for basic CSS structure
+            if '{' in css_content and '}' in css_content:
+                # Wrap in style tags for proper CSS injection
+                st.markdown(f'<style>{css_content}</style>', unsafe_allow_html=True)
+            else:
+                logger.warning("CSS file doesn't appear to contain valid CSS")
+    else:
+        # CSS file not found - continue without styles
+        logger.info("CSS file not found, continuing without custom styles")
+except Exception as e:
+    # Log the error but don't stop the application
+    logger.error(f"Error loading CSS: {e}")
+    # Continue without custom styles
 
 # Import our modules
+MODULES_AVAILABLE = True
+MODULE_ERRORS = {}
+REQUIRED_MODULES = []
+OPTIONAL_MODULES = []
+
 try:
+    # Core required modules
     from modules.universal_document_reader import UniversalDocumentReader, DocumentMetadata, DocumentPage
     from modules.intelligent_processor import IntelligentProcessor, ProcessingResult
     from modules.gpt_dialogue_generator import GPTDialogueGenerator
     from modules.enhanced_universal_extractor import EnhancedUniversalExtractor
     from modules.multi_format_exporter import MultiFormatExporter
-    from modules.analytics_dashboard import AnalyticsDashboard
-    from modules.session_persistence import SessionPersistence, get_session_persistence, initialize_persistent_session
-    from modules.ui_state_manager import UIStateManager, get_ui_state_manager
-    from modules.realtime_ai_processor import RealtimeAIProcessor, get_realtime_ai_processor
-    from modules.ai_chat_interface import AIChatInterface, get_ai_chat_interface
-    from modules.edit_mode_manager import EditModeManager, get_edit_mode_manager
-    MODULES_AVAILABLE = True
+    REQUIRED_MODULES = ['universal_document_reader', 'intelligent_processor', 
+                       'gpt_dialogue_generator', 'enhanced_universal_extractor', 
+                       'multi_format_exporter']
 except ImportError as e:
-    st.error(f"❌ Module import error: {e}")
+    MODULES_AVAILABLE = False
+    MODULE_ERRORS['core_modules'] = str(e)
+    logger.critical(f"❌ Critical module import error: {e}")
+    st.error(f"❌ Critical module import error: {e}")
+    st.error("The application cannot continue without core modules.")
+    st.info("Please ensure all dependencies are installed: pip install -r requirements.txt")
     st.stop()
+
+# Import optional modules with graceful degradation
+optional_imports = {
+    'analytics_dashboard': 'modules.analytics_dashboard',
+    'session_persistence': 'modules.session_persistence',
+    'ui_state_manager': 'modules.ui_state_manager',
+    'realtime_ai_processor': 'modules.realtime_ai_processor',
+    'ai_chat_interface': 'modules.ai_chat_interface',
+    'edit_mode_manager': 'modules.edit_mode_manager'
+}
+
+for module_name, module_path in optional_imports.items():
+    try:
+        if module_name == 'analytics_dashboard':
+            from modules.analytics_dashboard import AnalyticsDashboard
+        elif module_name == 'session_persistence':
+            from modules.session_persistence import SessionPersistence, get_session_persistence, initialize_persistent_session
+        elif module_name == 'ui_state_manager':
+            from modules.ui_state_manager import UIStateManager, get_ui_state_manager
+        elif module_name == 'realtime_ai_processor':
+            from modules.realtime_ai_processor import RealtimeAIProcessor, get_realtime_ai_processor
+        elif module_name == 'ai_chat_interface':
+            from modules.ai_chat_interface import AIChatInterface, get_ai_chat_interface
+        elif module_name == 'edit_mode_manager':
+            from modules.edit_mode_manager import EditModeManager, get_edit_mode_manager
+        OPTIONAL_MODULES.append(module_name)
+    except ImportError as e:
+        MODULE_ERRORS[module_name] = str(e)
+        logger.warning(f"Optional module '{module_name}' not available: {e}")
+        
+        # Define fallback functions for optional modules
+        if module_name == 'analytics_dashboard':
+            class AnalyticsDashboard:
+                def __init__(self):
+                    pass
+                def track_event(self, *args, **kwargs):
+                    pass
+                def display_analytics(self):
+                    st.info("Analytics module not available")
+        
+        elif module_name == 'session_persistence':
+            class SessionPersistence:
+                def __init__(self):
+                    pass
+                def save_session_state(self):
+                    pass
+                def initialize_session(self):
+                    return "fallback_session"
+            
+            def get_session_persistence():
+                return SessionPersistence()
+            
+            def initialize_persistent_session():
+                pass
+
+# Display module status in sidebar if there are any issues
+if MODULE_ERRORS:
+    with st.sidebar.expander("⚠️ Module Status", expanded=False):
+        st.write("**Available Modules:**")
+        for module in REQUIRED_MODULES + OPTIONAL_MODULES:
+            st.write(f"✅ {module}")
+        
+        st.write("\n**Missing Optional Modules:**")
+        for module, error in MODULE_ERRORS.items():
+            if module != 'core_modules':
+                st.write(f"⚠️ {module}")
+                with st.expander(f"Error details for {module}", expanded=False):
+                    st.code(error)
 
 # Import new components
 
@@ -84,9 +208,6 @@ except ImportError:
         st.session_state[key] = value
     def with_error_boundary(func):
         return func
-
-# Configure logging
-logging.basicConfig(level=logging.INFO)
 
 # ULTRA-SAFE SESSION STATE INITIALIZATION - PREVENTS ALL AttributeError CRASHES
 def ensure_session_state():
@@ -122,7 +243,6 @@ def ensure_session_state():
 
 # Initialize session state with new robust manager
 init_session_state()
-logger = logging.getLogger(__name__)
 
 # Apply saved preferences on startup
 try:

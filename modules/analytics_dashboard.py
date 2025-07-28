@@ -52,6 +52,21 @@ except ImportError:
     PANDAS_AVAILABLE = False
     logging.warning("Pandas not available - data analysis features limited")
 
+import streamlit as st
+import time
+import json
+import uuid
+import logging
+from typing import Dict, List, Any, Optional
+from dataclasses import dataclass, asdict
+from datetime import datetime, timedelta
+import pandas as pd
+import plotly.express as px
+import plotly.graph_objects as go
+from collections import deque, defaultdict
+import numpy as np
+import os
+
 logger = logging.getLogger(__name__)
 
 @dataclass
@@ -90,46 +105,98 @@ class SessionAnalytics:
     processing_events: List[ProcessingEvent]
 
 class AnalyticsDashboard:
-    """Analytics and performance monitoring dashboard"""
+    """Real-time analytics dashboard for document processing"""
     
     def __init__(self):
-        self.session_start = time.time()
-        self.metrics_history = []
-        self.processing_events = []
-        self.performance_cache = {}
-        
-        # Initialize session analytics
-        if 'analytics_session_id' not in st.session_state:
-            st.session_state.analytics_session_id = f"session_{int(time.time())}"
-        
-        if 'analytics_data' not in st.session_state:
-            st.session_state.analytics_data = {
-                'performance_metrics': [],
-                'processing_events': [],
-                'system_stats': [],
-                'user_interactions': []
-            }
+        try:
+            self.session_start = time.time()
+            self.metrics_history = []
+            self.processing_events = []
+            self.performance_cache = {}
+            
+            # Initialize session analytics with proper error handling
+            if 'analytics_session_id' not in st.session_state:
+                # Use UUID for guaranteed unique session IDs
+                st.session_state.analytics_session_id = f"session_{uuid.uuid4().hex}_{int(time.time())}"
+                logger.info(f"Created new analytics session: {st.session_state.analytics_session_id}")
+            
+            if 'analytics_data' not in st.session_state:
+                st.session_state.analytics_data = self._initialize_analytics_data()
+            else:
+                # Validate existing analytics data structure
+                self._validate_analytics_data()
+                
+        except Exception as e:
+            logger.error(f"Error initializing AnalyticsDashboard: {e}")
+            # Initialize with minimal fallback data
+            st.session_state.analytics_session_id = f"fallback_{uuid.uuid4().hex}"
+            st.session_state.analytics_data = self._initialize_analytics_data()
     
-    def record_performance_metric(self, metric_type: str, value: float, metadata: Dict[str, Any] = None):
-        """Record a performance metric"""
-        metric = PerformanceMetric(
-            timestamp=time.time(),
-            metric_type=metric_type,
-            value=value,
-            metadata=metadata or {}
-        )
-        
-        # Safe append to analytics data
-        if 'analytics_data' not in st.session_state:
-            st.session_state.analytics_data = {'performance_metrics': [], 'processing_events': []}
-        if 'performance_metrics' not in st.session_state.analytics_data:
-            st.session_state.analytics_data['performance_metrics'] = []
-        st.session_state.analytics_data['performance_metrics'].append(asdict(metric))
-        
-        # Keep only last 1000 metrics to prevent memory issues
-        if len(st.session_state.analytics_data['performance_metrics']) > 1000:
-            st.session_state.analytics_data['performance_metrics'] = \
-                st.session_state.analytics_data['performance_metrics'][-1000:]
+    def _initialize_analytics_data(self) -> Dict[str, Any]:
+        """Initialize analytics data structure with proper types"""
+        return {
+            'performance_metrics': deque(maxlen=1000),  # Use deque for efficient memory management
+            'processing_events': deque(maxlen=500),
+            'system_stats': deque(maxlen=100),
+            'user_interactions': deque(maxlen=200),
+            'metadata': {
+                'created_at': datetime.now().isoformat(),
+                'version': '1.0'
+            }
+        }
+    
+    def _validate_analytics_data(self):
+        """Validate and fix analytics data structure"""
+        try:
+            required_keys = ['performance_metrics', 'processing_events', 'system_stats', 'user_interactions']
+            
+            for key in required_keys:
+                if key not in st.session_state.analytics_data:
+                    st.session_state.analytics_data[key] = deque(maxlen=1000)
+                elif not isinstance(st.session_state.analytics_data[key], (list, deque)):
+                    # Convert to deque if it's not already
+                    data = st.session_state.analytics_data[key]
+                    if isinstance(data, dict):
+                        st.session_state.analytics_data[key] = deque([data], maxlen=1000)
+                    else:
+                        st.session_state.analytics_data[key] = deque(maxlen=1000)
+                elif isinstance(st.session_state.analytics_data[key], list):
+                    # Convert list to deque for better memory management
+                    max_len = 1000 if key == 'performance_metrics' else 500
+                    st.session_state.analytics_data[key] = deque(
+                        st.session_state.analytics_data[key][-max_len:], 
+                        maxlen=max_len
+                    )
+                    
+        except Exception as e:
+            logger.error(f"Error validating analytics data: {e}")
+            # Reset to safe defaults
+            st.session_state.analytics_data = self._initialize_analytics_data()
+    
+    def record_performance_metric(self, metric_type: str, value: float, metadata: Optional[Dict[str, Any]] = None):
+        """Record a performance metric with error handling"""
+        try:
+            # Validate inputs
+            if not isinstance(value, (int, float)) or not isinstance(metric_type, str):
+                logger.warning(f"Invalid metric input: type={metric_type}, value={value}")
+                return
+                
+            metric = PerformanceMetric(
+                timestamp=time.time(),
+                metric_type=metric_type,
+                value=float(value),  # Ensure float type
+                metadata=metadata if metadata is not None else {}
+            )
+            
+            # Safe append to analytics data
+            if 'analytics_data' not in st.session_state:
+                st.session_state.analytics_data = self._initialize_analytics_data()
+            
+            # Use deque for automatic size management
+            st.session_state.analytics_data['performance_metrics'].append(asdict(metric))
+            
+        except Exception as e:
+            logger.error(f"Error recording performance metric: {e}")
     
     def record_processing_event(self, event_type: str, page_number: int, 
                               processing_mode: str, duration: float, 
@@ -145,7 +212,7 @@ class AnalyticsDashboard:
             success=success,
             result_count=result_count,
             confidence_avg=confidence_avg,
-            metadata=metadata or {}
+                            metadata=metadata if metadata is not None else {}
         )
         
         # Safe append to processing events

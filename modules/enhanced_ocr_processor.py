@@ -36,8 +36,7 @@ except ImportError:
     PIL_AVAILABLE = False
     # Create a dummy Image class for type hints when PIL is not available
     class Image:
-        class Image:
-            pass
+        pass
 
 try:
     import langdetect
@@ -62,23 +61,59 @@ class OCRResult:
 
 @dataclass
 class OCRConfiguration:
-    """OCR processing configuration"""
+    """OCR processing configuration with sensible defaults"""
     language: str = "eng"
-    psm: int = 6  # Page segmentation mode
-    oem: int = 3  # OCR Engine mode
+    psm: int = 6  # Page segmentation mode (6 = Uniform block of text)
+    oem: int = 3  # OCR Engine mode (3 = Default, based on what is available)
     confidence_threshold: float = 60.0
     dpi: int = 300
     preprocessing: bool = True
     custom_config: str = ""
+    
+    # PSM modes explanation:
+    # 0 = Orientation and script detection (OSD) only.
+    # 1 = Automatic page segmentation with OSD.
+    # 3 = Fully automatic page segmentation, but no OSD. (Default)
+    # 4 = Assume a single column of text of variable sizes.
+    # 5 = Assume a single uniform block of vertically aligned text.
+    # 6 = Assume a single uniform block of text.
+    # 7 = Treat the image as a single text line.
+    # 8 = Treat the image as a single word.
+    # 9 = Treat the image as a single word in a circle.
+    # 10 = Treat the image as a single character.
+    # 11 = Sparse text. Find as much text as possible in no particular order.
+    # 12 = Sparse text with OSD.
+    # 13 = Raw line. Treat the image as a single text line, bypassing hacks.
+    
+    def validate(self) -> bool:
+        """Validate configuration parameters"""
+        if self.psm < 0 or self.psm > 13:
+            raise ValueError(f"PSM must be between 0 and 13, got {self.psm}")
+        if self.oem < 0 or self.oem > 3:
+            raise ValueError(f"OEM must be between 0 and 3, got {self.oem}")
+        if self.confidence_threshold < 0 or self.confidence_threshold > 100:
+            raise ValueError(f"Confidence threshold must be between 0 and 100, got {self.confidence_threshold}")
+        if self.dpi < 72 or self.dpi > 4800:
+            raise ValueError(f"DPI must be between 72 and 4800, got {self.dpi}")
+        return True
 
 
 class EnhancedOCRProcessor:
     """Enhanced OCR processor with language support and quality assessment"""
     
-    def __init__(self):
+    def __init__(self, config: Optional[OCRConfiguration] = None):
         self.logger = logging.getLogger(__name__)
+        self.config = config or OCRConfiguration()
+        self._temp_files: List[str] = []  # Track temporary files for cleanup
         
-        # Available language models
+        # Validate configuration
+        try:
+            self.config.validate()
+        except ValueError as e:
+            self.logger.error(f"Invalid OCR configuration: {e}")
+            self.config = OCRConfiguration()  # Fall back to defaults
+        
+        # Available language models with Unicode support
         self.language_models = {
             "eng": "English",
             "hin": "Hindi (हिन्दी)",
@@ -102,22 +137,53 @@ class EnhancedOCRProcessor:
         # Check available Tesseract languages
         self.available_languages = self._check_available_languages()
         
-        # Default configuration
-        self.default_config = OCRConfiguration()
+    def __enter__(self):
+        """Context manager entry"""
+        return self
+        
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """Context manager exit - cleanup resources"""
+        self.cleanup()
+        
+    def cleanup(self):
+        """Clean up temporary files and resources"""
+        for temp_file in self._temp_files:
+            try:
+                if os.path.exists(temp_file):
+                    os.remove(temp_file)
+                    self.logger.debug(f"Removed temporary file: {temp_file}")
+            except Exception as e:
+                self.logger.warning(f"Failed to remove temporary file {temp_file}: {e}")
+        self._temp_files.clear()
     
     def _check_available_languages(self) -> List[str]:
-        """Check which Tesseract language models are installed"""
+        """Check which Tesseract language models are installed with proper validation"""
         
         if not OCR_AVAILABLE:
-            return []
-        
+            self.logger.warning("OCR not available - Tesseract not installed")
+            return ["eng"]  # Return default language
+            
         try:
-            available = pytesseract.get_languages(config='')
-            self.logger.info(f"Available Tesseract languages: {available}")
+            # Get list of available languages from Tesseract
+            result = pytesseract.get_languages()
+            
+            # Validate the result
+            if not isinstance(result, list):
+                self.logger.error("Unexpected result from get_languages()")
+                return ["eng"]
+                
+            # Filter to only include languages we support
+            available = [lang for lang in result if lang in self.language_models]
+            
+            if not available:
+                self.logger.warning("No supported languages found, defaulting to English")
+                return ["eng"]
+                
             return available
+            
         except Exception as e:
-            self.logger.error(f"Failed to check available languages: {e}")
-            return ["eng"]  # Default fallback
+            self.logger.error(f"Error checking available languages: {e}")
+            return ["eng"]  # Default to English on error
     
     def detect_language(self, text: str) -> str:
         """Detect language of text content"""

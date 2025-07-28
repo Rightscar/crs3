@@ -16,11 +16,15 @@ Features:
 import streamlit as st
 import logging
 import json
-import hashlib
-import time
-from typing import Dict, List, Any, Optional
-from datetime import datetime
+import os
 import uuid
+import secrets
+import hashlib
+from datetime import datetime, timedelta
+from typing import Dict, Any, Optional, List, Tuple
+from dataclasses import dataclass, asdict
+import pickle
+import base64
 
 from .database_manager import DatabaseManager, DatabaseSession, DocumentRecord
 
@@ -31,12 +35,39 @@ logger = logging.getLogger(__name__)
 class SessionPersistence:
     """Manages persistence between Streamlit session state and SQLite database"""
     
-    def __init__(self, db_path: str = "data/universal_reader.db"):
-        """Initialize session persistence manager"""
-        self.db = DatabaseManager(db_path)
-        self._session_id = None
-        self._user_id = None
+    def __init__(self, db_manager: Optional[DatabaseManager] = None):
+        """Initialize session persistence with database manager"""
+        self.db = db_manager or DatabaseManager()
+        self._session_id: Optional[str] = None
+        self._user_id: Optional[str] = None
         self._initialized = False
+        self._auto_save_enabled = True
+        self._save_interval = 60  # seconds
+        self._last_save_time = datetime.now()
+        
+        # Security: Add session validation token
+        self._session_token: Optional[str] = None
+        self._session_expiry = timedelta(hours=24)  # Session expires after 24 hours
+        
+        logger.info("SessionPersistence initialized")
+    
+    def _generate_secure_id(self, prefix: str = "") -> str:
+        """Generate a cryptographically secure ID"""
+        # Use secrets module for cryptographically strong random values
+        random_bytes = secrets.token_bytes(32)
+        hash_value = hashlib.sha256(random_bytes).hexdigest()
+        unique_id = f"{prefix}{uuid.uuid4().hex}_{hash_value[:16]}"
+        return unique_id
+    
+    def _generate_session_token(self) -> str:
+        """Generate a secure session validation token"""
+        return secrets.token_urlsafe(32)
+    
+    def _validate_session_token(self, token: str) -> bool:
+        """Validate session token"""
+        if not self._session_token or not token:
+            return False
+        return secrets.compare_digest(self._session_token, token)
     
     def initialize_session(self) -> str:
         """Initialize or restore session from database"""
@@ -44,47 +75,142 @@ class SessionPersistence:
         if 'db_session_id' in st.session_state and st.session_state.db_session_id:
             self._session_id = st.session_state.db_session_id
             
+            # Security: Validate session token
+            stored_token = st.session_state.get('db_session_token', None)
+            if not stored_token:
+                logger.warning("Session token missing, creating new session")
+                return self._create_new_session()
+            
             # Verify session exists in database
             db_session = self.db.get_session(self._session_id)
             if db_session:
-                logger.info(f"Restored existing session: {self._session_id}")
-                self._user_id = db_session.user_id
-                
-                # Restore session data from database
-                self._restore_session_data(db_session.session_data)
-                self._initialized = True
-                return self._session_id
+                # Validate session ownership and expiry
+                try:
+                    session_data = json.loads(db_session.session_data) if db_session.session_data else {}
+                    stored_session_token = session_data.get('session_token', None)
+                    
+                    # Check if session is expired
+                    created_at = datetime.fromisoformat(db_session.created_at.replace('Z', '+00:00'))
+                    if datetime.now() - created_at > self._session_expiry:
+                        logger.warning(f"Session {self._session_id} expired, creating new session")
+                        return self._create_new_session()
+                    
+                    # Validate token
+                    if stored_session_token and secrets.compare_digest(stored_session_token, stored_token):
+                        logger.info(f"Restored existing session: {self._session_id}")
+                        self._user_id = db_session.user_id
+                        self._session_token = stored_token
+                        
+                        # Restore session data from database
+                        self._restore_session_data(db_session.session_data)
+                        self._initialized = True
+                        return self._session_id
+                    else:
+                        logger.warning("Session token validation failed, creating new session")
+                        return self._create_new_session()
+                except Exception as e:
+                    logger.error(f"Error validating session: {e}")
+                    return self._create_new_session()
         
         # Create new session
-        self._user_id = f"user_{int(datetime.now().timestamp())}"
+        return self._create_new_session()
+    
+    def _create_new_session(self) -> str:
+        """Create a new secure session"""
+        # Generate cryptographically secure IDs
+        self._user_id = self._generate_secure_id("user_")
         self._session_id = self.db.create_session(self._user_id)
+        self._session_token = self._generate_session_token()
         
         # Store in Streamlit session state
         st.session_state.db_session_id = self._session_id
         st.session_state.db_user_id = self._user_id
+        st.session_state.db_session_token = self._session_token
+        
+        # Store token in database session data for validation
+        initial_data = {
+            'session_token': self._session_token,
+            'created_at': datetime.now().isoformat()
+        }
+        self.db.update_session_data(self._session_id, json.dumps(initial_data))
         
         logger.info(f"Created new session: {self._session_id}")
         self._initialized = True
         return self._session_id
     
-    def _restore_session_data(self, session_data: Dict[str, Any]):
-        """Restore session data from database to Streamlit session state"""
-        if not session_data:
+    def _restore_session_data(self, session_data_str: str):
+        """Restore session data from database to Streamlit session state with validation"""
+        if not session_data_str:
             return
         
-        # Define which keys should be restored from database
-        restorable_keys = [
-            'keywords', 'context_query', 'ai_model', 'ai_temperature',
-            'questions_per_page', 'processing_quality_threshold',
-            'show_processing_panel', 'show_navigation_panel',
-            'current_processing_mode', 'auto_process_enabled'
-        ]
-        
-        for key in restorable_keys:
-            if key in session_data:
-                st.session_state[key] = session_data[key]
-        
-        logger.info("Restored session data from database")
+        try:
+            # Parse JSON data with error handling
+            session_data = json.loads(session_data_str)
+            
+            # Validate that session_data is a dictionary
+            if not isinstance(session_data, dict):
+                logger.error("Invalid session data format: expected dictionary")
+                return
+            
+            # Define which keys should be restored from database with their expected types
+            restorable_keys = {
+                'keywords': list,
+                'context_query': str,
+                'ai_model': str,
+                'ai_temperature': (int, float),
+                'questions_per_page': int,
+                'processing_quality_threshold': (int, float),
+                'show_processing_panel': bool,
+                'show_navigation_panel': bool,
+                'current_processing_mode': str,
+                'auto_process_enabled': bool
+            }
+            
+            # Validate and restore each key
+            for key, expected_type in restorable_keys.items():
+                if key in session_data:
+                    value = session_data[key]
+                    
+                    # Type validation
+                    if isinstance(expected_type, tuple):
+                        if not isinstance(value, expected_type):
+                            logger.warning(f"Invalid type for session key '{key}': expected {expected_type}, got {type(value)}")
+                            continue
+                    else:
+                        if not isinstance(value, expected_type):
+                            logger.warning(f"Invalid type for session key '{key}': expected {expected_type}, got {type(value)}")
+                            continue
+                    
+                    # Additional validation for specific fields
+                    if key == 'ai_temperature' and not (0 <= value <= 2):
+                        logger.warning(f"Invalid temperature value: {value}, must be between 0 and 2")
+                        continue
+                    
+                    if key == 'questions_per_page' and not (1 <= value <= 100):
+                        logger.warning(f"Invalid questions_per_page value: {value}, must be between 1 and 100")
+                        continue
+                    
+                    if key == 'processing_quality_threshold' and not (0 <= value <= 1):
+                        logger.warning(f"Invalid quality threshold: {value}, must be between 0 and 1")
+                        continue
+                    
+                    # Sanitize string values
+                    if isinstance(value, str):
+                        value = value.strip()[:1000]  # Limit string length
+                    
+                    # Sanitize list values
+                    if isinstance(value, list):
+                        # Limit list size and sanitize string elements
+                        value = [str(item).strip()[:100] for item in value[:50]]
+                    
+                    st.session_state[key] = value
+            
+            logger.info("Restored and validated session data from database")
+            
+        except json.JSONDecodeError as e:
+            logger.error(f"Failed to parse session data: {e}")
+        except Exception as e:
+            logger.error(f"Error restoring session data: {e}")
     
     def save_session_state(self):
         """Save current Streamlit session state to database"""

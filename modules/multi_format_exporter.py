@@ -21,6 +21,8 @@ from datetime import datetime
 import io
 import zipfile
 from pathlib import Path
+import os
+import re
 
 # Optional pandas import
 try:
@@ -46,6 +48,60 @@ class MultiFormatExporter:
     def __init__(self):
         self.timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     
+    def _sanitize_filename(self, filename: str) -> str:
+        """Sanitize filename to prevent directory traversal and other security issues"""
+        if not filename:
+            return "export"
+        
+        # Remove any path separators and parent directory references
+        filename = os.path.basename(filename)
+        filename = filename.replace("..", "")
+        
+        # Remove or replace potentially dangerous characters
+        # Allow only alphanumeric, dash, underscore, and dot
+        filename = re.sub(r'[^a-zA-Z0-9._-]', '_', filename)
+        
+        # Ensure filename doesn't start with a dot (hidden file)
+        if filename.startswith('.'):
+            filename = '_' + filename[1:]
+        
+        # Limit filename length
+        max_length = 255
+        if len(filename) > max_length:
+            name, ext = os.path.splitext(filename)
+            name = name[:max_length - len(ext) - 1]
+            filename = name + ext
+        
+        # Ensure filename is not empty after sanitization
+        if not filename or filename.isspace():
+            filename = "export"
+        
+        return filename
+    
+    def _validate_export_size(self, data: Any, max_size_mb: int = 100) -> bool:
+        """Validate that export data size is within limits"""
+        try:
+            if isinstance(data, str):
+                size_bytes = len(data.encode('utf-8'))
+            elif isinstance(data, bytes):
+                size_bytes = len(data)
+            elif hasattr(data, 'getvalue'):
+                size_bytes = len(data.getvalue())
+            else:
+                # Estimate size for other types
+                size_bytes = len(str(data).encode('utf-8'))
+            
+            size_mb = size_bytes / (1024 * 1024)
+            
+            if size_mb > max_size_mb:
+                logger.warning(f"Export size {size_mb:.2f}MB exceeds limit of {max_size_mb}MB")
+                return False
+            
+            return True
+        except Exception as e:
+            logger.error(f"Error validating export size: {e}")
+            return False
+    
     def export_to_json(self, dialogues: List[Dict[str, Any]], 
                       include_metadata: bool = True) -> str:
         """Export dialogues to JSON format"""
@@ -59,7 +115,13 @@ class MultiFormatExporter:
             "dialogues": dialogues
         }
         
-        return json.dumps(export_data, indent=2, ensure_ascii=False)
+        json_str = json.dumps(export_data, indent=2, ensure_ascii=False)
+        
+        # Validate export size
+        if not self._validate_export_size(json_str):
+            raise ValueError("Export data exceeds maximum allowed size")
+        
+        return json_str
     
     def export_to_jsonl(self, dialogues: List[Dict[str, Any]]) -> str:
         """Export dialogues to JSONL format (one JSON object per line)"""
@@ -385,40 +447,44 @@ def render_export_ui(dialogues: List[Dict[str, Any]]) -> None:
     with col1:
         if 'JSON' in export_formats:
             json_data = exporter.export_to_json(dialogues, include_metadata)
+            filename = exporter._sanitize_filename(f"dialogues_{exporter.timestamp}.json")
             st.download_button(
                 label="📄 Download JSON",
                 data=json_data,
-                file_name=f"dialogues_{exporter.timestamp}.json",
+                file_name=filename,
                 mime="application/json"
             )
     
     with col2:
         if 'JSONL' in export_formats:
             jsonl_data = exporter.export_to_jsonl(dialogues)
+            filename = exporter._sanitize_filename(f"training_data_{exporter.timestamp}.jsonl")
             st.download_button(
                 label="📝 Download JSONL",
                 data=jsonl_data,
-                file_name=f"training_data_{exporter.timestamp}.jsonl",
+                file_name=filename,
                 mime="application/json"
             )
     
     with col3:
         if 'CSV' in export_formats:
             csv_data = exporter.export_to_csv(dialogues)
+            filename = exporter._sanitize_filename(f"dialogues_{exporter.timestamp}.csv")
             st.download_button(
                 label="📊 Download CSV",
                 data=csv_data,
-                file_name=f"dialogues_{exporter.timestamp}.csv",
+                file_name=filename,
                 mime="text/csv"
             )
     
     with col4:
         if 'Excel' in export_formats:
             excel_data = exporter.export_to_excel(dialogues)
+            filename = exporter._sanitize_filename(f"dialogues_{exporter.timestamp}.xlsx")
             st.download_button(
                 label="📈 Download Excel",
                 data=excel_data,
-                file_name=f"dialogues_{exporter.timestamp}.xlsx",
+                file_name=filename,
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             )
     
@@ -431,10 +497,11 @@ def render_export_ui(dialogues: List[Dict[str, Any]]) -> None:
                 formats_lower = [fmt.lower() for fmt in export_formats]
                 zip_data = exporter.create_export_package(dialogues, formats_lower)
                 
+                filename = exporter._sanitize_filename(f"dialogue_export_package_{exporter.timestamp}.zip")
                 st.download_button(
                     label="💾 Download ZIP Package",
                     data=zip_data,
-                    file_name=f"dialogue_export_package_{exporter.timestamp}.zip",
+                    file_name=filename,
                     mime="application/zip"
                 )
                 

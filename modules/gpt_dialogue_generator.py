@@ -17,6 +17,7 @@ import json
 import time
 from typing import List, Dict, Any, Optional, Tuple
 from dataclasses import dataclass
+import re # Added for sanitization
 
 # Optional streamlit import for UI components
 try:
@@ -132,13 +133,56 @@ class GPTDialogueGenerator:
             # Fallback to demo mode
             return self._generate_demo_dialogue(chunk_text, questions_count)
     
+    def _sanitize_content(self, text: str) -> str:
+        """Sanitize user content to prevent prompt injection"""
+        if not text:
+            return ""
+        
+        # Remove or escape potentially dangerous patterns
+        dangerous_patterns = [
+            # Common prompt injection patterns
+            r'(ignore|forget|disregard)\s+(all\s+)?(previous|prior|above)\s+(instructions?|prompts?|rules?)',
+            r'(new|different)\s+(instructions?|task|role)',
+            r'(you\s+are\s+now|act\s+as|pretend\s+to\s+be)',
+            r'(system|admin|root)\s*(mode|access|prompt)',
+            # Attempts to reveal system prompts
+            r'(show|reveal|display|print)\s+(the\s+)?(system|original|initial)\s+(prompt|instructions?)',
+            r'what\s+(are|were)\s+your\s+(original\s+)?(instructions?|prompts?)',
+            # Attempts to bypass restrictions
+            r'(bypass|override|ignore)\s+(safety|security|restrictions?)',
+            # Code injection attempts
+            r'<script[^>]*>.*?</script>',
+            r'javascript:',
+            r'eval\s*\(',
+            r'exec\s*\(',
+        ]
+        
+        sanitized = text
+        for pattern in dangerous_patterns:
+            # Replace dangerous patterns with harmless placeholders
+            sanitized = re.sub(pattern, '[REMOVED FOR SECURITY]', sanitized, flags=re.IGNORECASE)
+        
+        # Escape special characters that could be used for prompt manipulation
+        sanitized = sanitized.replace('\\', '\\\\')  # Escape backslashes
+        sanitized = sanitized.replace('"', '\\"')    # Escape quotes
+        
+        # Limit length to prevent resource exhaustion
+        max_length = 10000
+        if len(sanitized) > max_length:
+            sanitized = sanitized[:max_length] + "... [TRUNCATED]"
+        
+        return sanitized
+    
     def _build_dialogue_prompt(self, chunk_text: str, style: str, questions_count: int) -> str:
         """Build prompt for OpenAI based on dialogue style"""
+        
+        # Sanitize the input text to prevent prompt injection
+        sanitized_text = self._sanitize_content(chunk_text)
         
         base_prompt = f"""Please create {questions_count} high-quality questions and answers based on the following text content.
 
 Text Content:
-{chunk_text}
+{sanitized_text}
 
 Requirements:
 - Generate exactly {questions_count} question-answer pairs
