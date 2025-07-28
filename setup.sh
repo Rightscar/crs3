@@ -31,7 +31,18 @@ pip install --upgrade pip setuptools wheel
 echo ""
 echo "Installing Python dependencies..."
 echo "This may take several minutes..."
-pip install -r requirements-complete.txt
+
+# Check if requirements-complete.txt exists, otherwise use requirements.txt
+if [ -f "requirements-complete.txt" ]; then
+    echo "Using requirements-complete.txt (full dependencies)"
+    pip install -r requirements-complete.txt
+elif [ -f "requirements.txt" ]; then
+    echo "Using requirements.txt (minimal dependencies)"
+    pip install -r requirements.txt
+else
+    echo "ERROR: No requirements file found!"
+    exit 1
+fi
 
 # Install spaCy language model
 echo ""

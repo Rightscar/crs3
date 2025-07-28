@@ -1,18 +1,92 @@
-[server]
-port = 8501
-address = "0.0.0.0"
-maxUploadSize = 50
-enableCORS = false
-enableXsrfProtection = true
-
-[browser]
-gatherUsageStats = false
+# Streamlit Configuration for LiteraryAI Studio
 
 [theme]
-primaryColor = "#667eea"
-backgroundColor = "#0f0f23"
-secondaryBackgroundColor = "#1a1a2e"
-textColor = "#ffffff"
+# Primary color for interactive elements
+primaryColor = "#1f77b4"
+
+# Background color for the main content area
+backgroundColor = "#FFFFFF"
+
+# Background color for sidebar and most interactive widgets
+secondaryBackgroundColor = "#F0F2F6"
+
+# Color used for almost all text
+textColor = "#262730"
+
+# Font family for all text
+font = "sans serif"
+
+# Base theme
+base = "light"
+
+[server]
+# Maximum file upload size (in MB)
+maxUploadSize = 50
+
+# Maximum message size (in MB)
+maxMessageSize = 50
+
+# Enable CORS protection
+enableCORS = true
+
+# Enable XSRF protection
+enableXsrfProtection = true
+
+# Port - will be overridden by environment variable in production
+port = 8501
+
+# Enable development mode
+# runOnSave = true
+
+# File watcher type
+fileWatcherType = "auto"
+
+# Headless mode (no browser launch)
+headless = false
+
+[browser]
+# Internet address where users should point their browsers
+serverAddress = "localhost"
+
+# Whether to send usage statistics to Streamlit
+gatherUsageStats = false
+
+# Port where users should point their browsers
+serverPort = 8501
+
+[runner]
+# Allows you to type a variable or string by itself in a single line of Python code
+magicEnabled = true
+
+# Install a Python tracer to allow you to stop or pause your script
+installTracer = true
+
+# Sets the MPLBACKEND environment variable
+fixMatplotlib = true
+
+[client]
+# Whether to enable st.cache
+caching = true
+
+# If false, makes your Streamlit script not draw to a Streamlit app
+displayEnabled = true
+
+# Controls whether uncaught app exceptions are displayed in the browser
+showErrorDetails = true
+
+# Change the visibility of items in the toolbar
+toolbarMode = "auto"
+
+[deprecation]
+# Set to false to disable the deprecation warning for using Streamlit commands outside the main script
+showfileUploaderEncoding = false
+
+# Set to false to disable the deprecation warning for the file uploader encoding
+showImageFormat = false
 
 [logger]
-level = "info"
+# Level of logging
+level = "INFO"
+
+# String format for logging messages
+messageFormat = "%(asctime)s %(name)-12s %(levelname)-8s %(message)s"

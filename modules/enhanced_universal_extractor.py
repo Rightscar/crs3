@@ -23,23 +23,26 @@ class EnhancedUniversalExtractor:
     def __init__(self):
         self.supported_formats = ['.pdf', '.txt', '.docx', '.epub', '.md']
         
-        # Enhanced Q&A detection patterns
+        # Maximum text length for regex processing (100KB)
+        self.max_regex_length = 100000
+        
+        # Compile regex patterns for better performance
         self.qa_patterns = [
             # Pattern 1: Q: ... A: ... (most common)
-            r'Q[:\-]\s*(.+?)\s*A[:\-]\s*(.+?)(?=Q[:\-]|$)',
+            re.compile(r'Q[:\-]\s*(.+?)\s*A[:\-]\s*(.+?)(?=Q[:\-]|$)', re.DOTALL | re.MULTILINE),
             # Pattern 2: Question: ... Answer: ...
-            r'Question[:\-]\s*(.+?)\s*Answer[:\-]\s*(.+?)(?=Question[:\-]|$)',
+            re.compile(r'Question[:\-]\s*(.+?)\s*Answer[:\-]\s*(.+?)(?=Question[:\-]|$)', re.DOTALL | re.MULTILINE),
             # Pattern 3: Questioner: ... Teacher: ...
-            r'(?:Questioner|Student|Seeker)[:\-]\s*(.+?)\s*(?:Teacher|Master|Guru)[:\-]\s*(.+?)(?=(?:Questioner|Student|Seeker)[:\-]|$)',
+            re.compile(r'(?:Questioner|Student|Seeker)[:\-]\s*(.+?)\s*(?:Teacher|Master|Guru)[:\-]\s*(.+?)(?=(?:Questioner|Student|Seeker)[:\-]|$)', re.DOTALL | re.MULTILINE),
             # Pattern 4: Numbered Q&A
-            r'\d+\.\s*Q[:\-]\s*(.+?)\s*A[:\-]\s*(.+?)(?=\d+\.\s*Q[:\-]|$)',
+            re.compile(r'\d+\.\s*Q[:\-]\s*(.+?)\s*A[:\-]\s*(.+?)(?=\d+\.\s*Q[:\-]|$)', re.DOTALL | re.MULTILINE),
         ]
         
-        # Dialogue detection patterns (speaker-based)
+        # Compile dialogue patterns for better performance
         self.dialogue_patterns = [
-            r'^([A-Z][^:]*?):\s*(.+)$',  # Speaker: content
-            r'^([A-Z][^—]*?)—\s*(.+)$',  # Speaker— content
-            r'"([^"]+)"\s*(?:said|asked|replied)\s*([^,]+)',  # Quoted speech
+            re.compile(r'^([A-Z][^:]*?):\s*(.+)$', re.MULTILINE),  # Speaker: content
+            re.compile(r'^([A-Z][^—]*?)—\s*(.+)$', re.MULTILINE),  # Speaker— content
+            re.compile(r'"([^"]+)"\s*(?:said|asked|replied)\s*([^,]+)', re.MULTILINE),  # Quoted speech
         ]
         
         self.extraction_stats = {
@@ -63,8 +66,26 @@ class EnhancedUniversalExtractor:
         self.extraction_stats['total_processed'] += 1
         
         try:
-            file_ext = Path(file_path).suffix.lower()
+            # Validate file path
+            path_obj = Path(file_path)
+            if not path_obj.exists():
+                raise FileNotFoundError(f"File not found: {file_path}")
             
+            if not path_obj.is_file():
+                raise ValueError(f"Path is not a file: {file_path}")
+            
+            # Check file size (limit to 50MB)
+            file_size = path_obj.stat().st_size
+            if file_size > 50 * 1024 * 1024:
+                raise ValueError(f"File too large: {file_size / 1024 / 1024:.1f}MB (max 50MB)")
+            
+            file_ext = path_obj.suffix.lower()
+            
+            if file_ext not in self.supported_formats:
+                raise ValueError(f"Unsupported file format: {file_ext}. Supported: {', '.join(self.supported_formats)}")
+            
+            # Extract content based on file type
+            raw_content = ""
             if file_ext == '.pdf':
                 raw_content = self._extract_pdf(file_path)
             elif file_ext == '.txt':
@@ -75,12 +96,22 @@ class EnhancedUniversalExtractor:
                 raw_content = self._extract_epub(file_path)
             elif file_ext == '.md':
                 raw_content = self._extract_md(file_path)
-            else:
-                raise ValueError(f"Unsupported file format: {file_ext}")
+            
+            if not raw_content:
+                logger.warning(f"No content extracted from {file_path}")
+                return []
             
             # Smart content detection and processing
             return self._smart_content_detection(raw_content, file_ext)
                 
+        except FileNotFoundError as e:
+            logger.error(f"File not found: {e}")
+            self.extraction_stats['extraction_errors'] += 1
+            return []
+        except ValueError as e:
+            logger.error(f"Invalid file: {e}")
+            self.extraction_stats['extraction_errors'] += 1
+            return []
         except Exception as e:
             logger.error(f"Extraction error for {file_path}: {e}")
             self.extraction_stats['extraction_errors'] += 1
@@ -195,7 +226,7 @@ class EnhancedUniversalExtractor:
     
     def _detect_structured_qa(self, text: str) -> List[Dict[str, Any]]:
         """
-        Detect structured Q&A using regex patterns
+        Detect structured Q&A using regex patterns with performance optimization
         
         Args:
             text: Text content to analyze
@@ -205,25 +236,55 @@ class EnhancedUniversalExtractor:
         """
         examples = []
         
-        for pattern in self.qa_patterns:
-            matches = re.finditer(pattern, text, re.DOTALL | re.IGNORECASE | re.MULTILINE)
-            for match in matches:
-                if len(match.groups()) >= 2:
-                    question = self._clean_extracted_text(match.group(1))
-                    answer = self._clean_extracted_text(match.group(2))
-                    
-                    if self._is_valid_qa_pair(question, answer):
-                        examples.append({
-                            'question': question,
-                            'answer': answer,
-                            'type': 'structured_qa',
-                            'pattern_used': pattern,
-                            'confidence': 0.9
-                        })
+        # Limit text length for regex processing
+        if len(text) > self.max_regex_length:
+            logger.warning(f"Text too long for regex ({len(text)} chars), truncating to {self.max_regex_length}")
+            text = text[:self.max_regex_length]
+        
+        # Use compiled patterns for better performance
+        for i, pattern in enumerate(self.qa_patterns):
+            try:
+                # Add timeout protection using signal (Unix-like systems)
+                import signal
+                
+                def timeout_handler(signum, frame):
+                    raise TimeoutError("Regex pattern timed out")
+                
+                # Set 5 second timeout for each pattern
+                if hasattr(signal, 'SIGALRM'):
+                    signal.signal(signal.SIGALRM, timeout_handler)
+                    signal.alarm(5)
+                
+                matches = list(pattern.finditer(text))
+                
+                # Cancel alarm
+                if hasattr(signal, 'SIGALRM'):
+                    signal.alarm(0)
+                
+                for match in matches[:100]:  # Limit to first 100 matches
+                    if len(match.groups()) >= 2:
+                        question = self._clean_extracted_text(match.group(1))
+                        answer = self._clean_extracted_text(match.group(2))
+                        
+                        if self._is_valid_qa_pair(question, answer):
+                            examples.append({
+                                'question': question,
+                                'answer': answer,
+                                'type': 'structured_qa',
+                                'pattern_index': i,
+                                'confidence': 0.9
+                            })
+                            
+            except TimeoutError:
+                logger.warning(f"Pattern {i} timed out, skipping")
+                continue
+            except Exception as e:
+                logger.warning(f"Error with pattern {i}: {e}")
+                continue
         
         # Remove duplicates and sort by quality
         examples = self._deduplicate_examples(examples)
-        return examples
+        return examples[:500]  # Limit total results
     
     def _detect_dialogue_format(self, text: str) -> List[Dict[str, Any]]:
         """

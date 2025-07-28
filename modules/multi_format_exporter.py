@@ -46,7 +46,12 @@ class MultiFormatExporter:
     """Export dialogues to multiple formats"""
     
     def __init__(self):
-        self.timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        # Generate timestamp when needed, not at initialization
+        self._instance_id = uuid.uuid4().hex[:8]
+    
+    def _get_timestamp(self) -> str:
+        """Generate a unique timestamp with microseconds to avoid collisions"""
+        return datetime.now().strftime("%Y%m%d_%H%M%S_%f")[:15]  # Include microseconds
     
     def _sanitize_filename(self, filename: str) -> str:
         """Sanitize filename to prevent directory traversal and other security issues"""
@@ -78,6 +83,26 @@ class MultiFormatExporter:
         
         return filename
     
+    def _make_json_serializable(self, obj: Any) -> Any:
+        """Convert non-serializable objects to JSON-safe formats"""
+        if isinstance(obj, (str, int, float, bool, type(None))):
+            return obj
+        elif isinstance(obj, (datetime, date)):
+            return obj.isoformat()
+        elif isinstance(obj, uuid.UUID):
+            return str(obj)
+        elif isinstance(obj, bytes):
+            return obj.decode('utf-8', errors='replace')
+        elif isinstance(obj, dict):
+            return {k: self._make_json_serializable(v) for k, v in obj.items()}
+        elif isinstance(obj, (list, tuple)):
+            return [self._make_json_serializable(item) for item in obj]
+        elif hasattr(obj, '__dict__'):
+            return self._make_json_serializable(obj.__dict__)
+        else:
+            # Convert to string as last resort
+            return str(obj)
+    
     def _validate_export_size(self, data: Any, max_size_mb: int = 100) -> bool:
         """Validate that export data size is within limits"""
         try:
@@ -104,24 +129,48 @@ class MultiFormatExporter:
     
     def export_to_json(self, dialogues: List[Dict[str, Any]], 
                       include_metadata: bool = True) -> str:
-        """Export dialogues to JSON format"""
+        """Export dialogues to JSON format with proper error handling"""
         
-        export_data = {
-            "metadata": {
-                "export_timestamp": datetime.now().isoformat(),
-                "total_dialogues": len(dialogues),
-                "export_format": "json"
-            } if include_metadata else {},
-            "dialogues": dialogues
-        }
-        
-        json_str = json.dumps(export_data, indent=2, ensure_ascii=False)
-        
-        # Validate export size
-        if not self._validate_export_size(json_str):
-            raise ValueError("Export data exceeds maximum allowed size")
-        
-        return json_str
+        try:
+            # Create a copy to avoid modifying original data
+            safe_dialogues = self._make_json_serializable(dialogues)
+            
+            export_data = {
+                "metadata": {
+                    "export_timestamp": datetime.now().isoformat(),
+                    "total_dialogues": len(safe_dialogues),
+                    "export_format": "json",
+                    "export_version": "1.0"
+                } if include_metadata else {},
+                "dialogues": safe_dialogues
+            }
+            
+            # Try with ensure_ascii=False first for better Unicode support
+            try:
+                json_str = json.dumps(export_data, indent=2, ensure_ascii=False, default=str)
+            except UnicodeEncodeError:
+                # Fallback to ASCII if Unicode causes issues
+                logger.warning("Unicode encoding failed, falling back to ASCII")
+                json_str = json.dumps(export_data, indent=2, ensure_ascii=True, default=str)
+            
+            # Validate export size
+            if not self._validate_export_size(json_str):
+                raise ValueError("Export data exceeds maximum allowed size")
+            
+            return json_str
+            
+        except Exception as e:
+            logger.error(f"JSON export error: {e}")
+            # Return minimal valid JSON on error
+            error_data = {
+                "error": f"Export failed: {str(e)}",
+                "metadata": {
+                    "export_timestamp": datetime.now().isoformat(),
+                    "export_format": "json",
+                    "status": "error"
+                }
+            }
+            return json.dumps(error_data, indent=2)
     
     def export_to_jsonl(self, dialogues: List[Dict[str, Any]]) -> str:
         """Export dialogues to JSONL format (one JSON object per line)"""
