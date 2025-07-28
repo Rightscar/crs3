@@ -194,32 +194,6 @@ if MODULE_ERRORS:
                 with st.expander(f"Error details for {module}", expanded=False):
                     st.code(error)
 
-# Import new components
-
-    from components.hamburger_menu import get_hamburger_menu, get_context_sidebar
-    from components.progressive_disclosure import get_progressive_disclosure, get_feature_hints
-    from components.toast_notifications import toast_success, toast_error, toast_info, get_toast_system
-    from components.skeleton_loaders import LoadingContext, get_skeleton_loader
-    from components.accessibility_enhancements import get_accessibility_enhancer, announce_to_screen_reader
-try:
-    from components.session_state_fix import init_session_state, safe_get, safe_set, with_error_boundary
-    from components.persistent_preferences import get_preferences, apply_all_preferences
-
-    from components.cancellable_processor import get_cancellable_processor, make_cancellable
-    from components.keyboard_navigation import get_keyboard_navigation, render_memory_status
-    from components.error_recovery import get_error_recovery, safe_execute, with_error_recovery
-    from components.mobile_optimizer import get_mobile_optimizer, is_mobile_device, optimize_for_device
-except ImportError:
-    # Fallback if new components not available
-    def init_session_state():
-        ensure_session_state()
-    def safe_get(key, default=None):
-        return st.session_state.get(key, default)
-    def safe_set(key, value):
-        st.session_state[key] = value
-    def with_error_boundary(func):
-        return func
-
 # ULTRA-SAFE SESSION STATE INITIALIZATION - PREVENTS ALL AttributeError CRASHES
 def ensure_session_state():
     """Bulletproof session state initialization"""
@@ -252,13 +226,69 @@ def ensure_session_state():
                 # Fallback for any edge cases
                 setattr(st.session_state, key, default_value)
 
+# Import new components
+try:
+    from components.hamburger_menu import get_hamburger_menu, get_context_sidebar
+    from components.progressive_disclosure import get_progressive_disclosure, get_feature_hints
+    from components.toast_notifications import toast_success, toast_error, toast_info, get_toast_system
+    from components.skeleton_loaders import LoadingContext, get_skeleton_loader
+    from components.accessibility_enhancements import get_accessibility_enhancer, announce_to_screen_reader
+except ImportError:
+    # Fallback if new components not available
+    pass
+
+try:
+    from components.session_state_fix import init_session_state, safe_get, safe_set, with_error_boundary
+    from components.persistent_preferences import get_preferences, apply_all_preferences
+    from components.cancellable_processor import get_cancellable_processor, make_cancellable
+    from components.keyboard_navigation import get_keyboard_navigation, render_memory_status
+    from components.error_recovery import get_error_recovery, safe_execute, with_error_recovery
+    from components.mobile_optimizer import get_mobile_optimizer, is_mobile_device, optimize_for_device
+except ImportError:
+    # Fallback if new components not available
+    def init_session_state():
+        ensure_session_state()
+    def safe_get(key, default=None):
+        return st.session_state.get(key, default)
+    def safe_set(key, value):
+        st.session_state[key] = value
+    def with_error_boundary(func):
+        return func
+    def get_preferences():
+        return {}
+    def apply_all_preferences():
+        pass
+    def get_error_recovery():
+        return None
+    def get_keyboard_navigation():
+        return None
+    def get_mobile_optimizer():
+        return None
+    def get_cancellable_processor():
+        return None
+    def get_hamburger_menu():
+        return None
+    def get_context_sidebar():
+        return None
+    def get_progressive_disclosure():
+        return None
+    def get_feature_hints():
+        return None
+    def get_toast_system():
+        return None
+    def get_skeleton_loader():
+        return None
+    def get_accessibility_enhancer():
+        return None
+
 # Initialize session state with new robust manager
 init_session_state()
 
 # Apply saved preferences on startup
 try:
     apply_all_preferences()
-
+except Exception as e:
+    logger.warning(f"Failed to apply preferences: {e}")
 
 # Initialize Week 1 components
 try:
@@ -275,7 +305,8 @@ try:
     processor = get_cancellable_processor()
     
     logger.info("Week 1 components initialized")
-
+except Exception as e:
+    logger.warning(f"Failed to initialize Week 1 components: {e}")
 
 # Initialize Week 2 components
 try:
@@ -299,10 +330,6 @@ try:
     logger.info("Week 2 components initialized")
 except Exception as e:
     logger.warning(f"Failed to initialize Week 2 components: {e}")
-except Exception as e:
-    logger.warning(f"Failed to initialize Week 1 components: {e}")
-except Exception as e:
-    logger.warning(f"Failed to apply preferences: {e}")
 
 # Load environment variables
 from dotenv import load_dotenv
@@ -1758,39 +1785,39 @@ class UniversalDocumentReaderApp:
                             edited_text = self.edit_manager.render_edit_interface(page_data.text_content)
                     else:
                         with st.expander("📝 Page Text with AI Analysis", expanded=True):
-                        # Real-time AI processing toggle
-                        col_toggle1, col_toggle2, col_toggle3 = st.columns(3)
+                            # Real-time AI processing toggle
+                            col_toggle1, col_toggle2, col_toggle3 = st.columns(3)
                         
-                        with col_toggle1:
-                            enable_grammar = st.checkbox("✅ Grammar Check", value=True, 
-                                                       help="Real-time grammar checking with green highlights")
-                        with col_toggle2:
-                            enable_emotion = st.checkbox("😊 Emotion Analysis", value=True,
-                                                       help="Color-coded emotion analysis")
-                        with col_toggle3:
-                            enable_insights = st.checkbox("💡 AI Insights", value=True,
-                                                        help="Real-time content suggestions")
-                        
-                        # Process text with real-time AI
-                        if enable_grammar or enable_emotion or enable_insights:
-                            ai_results = self.realtime_ai.process_text_realtime(
-                                page_data.text_content,
-                                enable_grammar=enable_grammar,
-                                enable_emotion=enable_emotion,
-                                enable_insights=enable_insights
-                            )
+                            with col_toggle1:
+                                enable_grammar = st.checkbox("✅ Grammar Check", value=True, 
+                                                           help="Real-time grammar checking with green highlights")
+                            with col_toggle2:
+                                enable_emotion = st.checkbox("😊 Emotion Analysis", value=True,
+                                                           help="Color-coded emotion analysis")
+                            with col_toggle3:
+                                enable_insights = st.checkbox("💡 AI Insights", value=True,
+                                                            help="Real-time content suggestions")
                             
-                            if ai_results:
-                                self._display_ai_enhanced_text(page_data.text_content, ai_results)
-                        else:
-                            # Simple text display
-                            st.text_area(
-                                "Page content",
-                                value=page_data.text_content,
-                                height=300,
-                                disabled=True,
-                                key="page_text_display"
-                            )
+                            # Process text with real-time AI
+                            if enable_grammar or enable_emotion or enable_insights:
+                                ai_results = self.realtime_ai.process_text_realtime(
+                                    page_data.text_content,
+                                    enable_grammar=enable_grammar,
+                                    enable_emotion=enable_emotion,
+                                    enable_insights=enable_insights
+                                )
+                                
+                                if ai_results:
+                                    self._display_ai_enhanced_text(page_data.text_content, ai_results)
+                            else:
+                                # Simple text display
+                                st.text_area(
+                                    "Page content",
+                                    value=page_data.text_content,
+                                    height=300,
+                                    disabled=True,
+                                    key="page_text_display"
+                                )
                     
                     # Enhanced text selection with AI processing
                     st.markdown("**💡 Interactive Text Analysis:**")
@@ -1995,36 +2022,36 @@ class UniversalDocumentReaderApp:
             )
             
             progress_placeholder.empty()
+            
+            if results:
+                # Calculate metrics
+                result_count = len(results)
+                confidence_avg = sum(r.confidence for r in results) / len(results)
+                success = True
                 
-                if results:
-                    # Calculate metrics
-                    result_count = len(results)
-                    confidence_avg = sum(r.confidence for r in results) / len(results)
-                    success = True
-                    
-                    # Add to processing results (session state)
-                    st.session_state.processing_results.extend(results)
-                    
-                    # Save each result to database
-                    for result in results:
-                        try:
-                            result_data = {
-                                'id': result.id,
-                                'type': result.type,
-                                'content': result.content,
-                                'source_text': result.source_text,
-                                'metadata': result.metadata,
-                                'timestamp': result.timestamp
-                            }
-                            
-                            self.persistence.save_processing_result(
-                                processing_mode=st.session_state.current_processing_mode,
-                                page_number=st.session_state.current_page,
-                                result_data=result_data,
-                                confidence=result.confidence
-                            )
-                        except Exception as e:
-                            logger.warning(f"Failed to save result to database: {e}")
+                # Add to processing results (session state)
+                st.session_state.processing_results.extend(results)
+                
+                # Save each result to database
+                for result in results:
+                    try:
+                        result_data = {
+                            'id': result.id,
+                            'type': result.type,
+                            'content': result.content,
+                            'source_text': result.source_text,
+                            'metadata': result.metadata,
+                            'timestamp': result.timestamp
+                        }
+                        
+                        self.persistence.save_processing_result(
+                            processing_mode=st.session_state.current_processing_mode,
+                            page_number=st.session_state.current_page,
+                            result_data=result_data,
+                            confidence=result.confidence
+                        )
+                    except Exception as e:
+                        logger.warning(f"Failed to save result to database: {e}")
                     
                     # Add to processing history (session state)
                     page_key = f"page_{st.session_state.current_page}"
