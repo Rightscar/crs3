@@ -1,52 +1,91 @@
+/* Emergency CSS Fixes for LiteraryAI Studio */
+/* This file contains critical CSS fixes for the Streamlit application */
 
-/* Emergency CSS fixes for better contrast and readability */
-<style>
-/* Improved text contrast */
+/* Fix for Streamlit layout issues */
 .stApp {
-    color: #f2f2f7 !important;
+    max-width: 100%;
 }
 
-/* Fix secondary background */
-.css-1d391kg, [data-testid="stSidebar"] {
-    background-color: #1e1e3f !important;
+/* Fix for sidebar width */
+.css-1d391kg {
+    width: 20rem;
 }
 
-/* Better input contrast */
-.stTextInput input, .stSelectbox select, .stTextArea textarea {
-    background-color: #252548 !important;
-    color: #f2f2f7 !important;
-    border: 1px solid rgba(255, 255, 255, 0.1) !important;
-}
-
-/* Fix label contrast */
-label {
-    color: #f2f2f7 !important;
-}
-
-/* Panel toggle button fix */
-.panel-toggle {
-    right: 0 !important;
-    width: 44px !important;
-    height: 44px !important;
-}
-
-/* Reduce emoji overload */
+/* Fix for button alignment */
 .stButton > button {
-    font-family: Inter, -apple-system, sans-serif !important;
-    font-weight: 500 !important;
+    width: 100%;
+    margin-top: 0.5rem;
 }
 
-/* Animation toggle */
-.animations-disabled * {
-    transition: none !important;
+/* Fix for text area height */
+.stTextArea > div > div > textarea {
+    min-height: 100px;
 }
 
-/* Mobile improvements */
-@media (max-width: 768px) {
-    .nav-panel, .processor-panel {
-        position: fixed !important;
-        z-index: 1000 !important;
-        height: 100vh !important;
-    }
+/* Fix for expander styling */
+.streamlit-expanderHeader {
+    font-weight: bold;
+    font-size: 1.1rem;
 }
-</style>
+
+/* Fix for metric styling */
+.css-1xarl3l {
+    font-size: 1.2rem;
+}
+
+/* Fix for progress bar */
+.stProgress > div > div > div > div {
+    background-color: #00cc88;
+}
+
+/* Fix for column gaps */
+[data-testid="column"] {
+    padding: 0 0.5rem;
+}
+
+/* Fix for file uploader */
+.stFileUploader > div {
+    padding: 1rem;
+    border: 2px dashed #ccc;
+    border-radius: 0.5rem;
+}
+
+/* Fix for tabs */
+.stTabs [data-baseweb="tab-list"] {
+    gap: 1rem;
+}
+
+/* Fix for alerts */
+.stAlert {
+    padding: 1rem;
+    margin: 1rem 0;
+}
+
+/* Fix for code blocks */
+.stCodeBlock {
+    margin: 1rem 0;
+}
+
+/* Fix for dataframe display */
+.stDataFrame {
+    margin: 1rem 0;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+}
+
+::-webkit-scrollbar-track {
+    background: #f1f1f1;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 5px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #555;
+}

@@ -65,19 +65,54 @@ class GPTDialogueGenerator:
     
     def __init__(self):
         self.openai_available = OPENAI_AVAILABLE
-        self.api_key = os.getenv('OPENAI_API_KEY')
+        self.api_key = os.getenv('OPENAI_API_KEY', '').strip()
         self.client = None
+        
+        # Validate API key format
+        if self.api_key and not self._validate_api_key_format(self.api_key):
+            logger.warning("OpenAI API key appears to be invalid format")
+            self.api_key = None
         
         # Initialize OpenAI client if API key is available
         if self.api_key and OPENAI_AVAILABLE:
             try:
                 self.client = openai.OpenAI(api_key=self.api_key)
-                logger.info("OpenAI client initialized successfully")
+                # Test the API key with a simple request
+                self._test_api_connection()
+                logger.info("OpenAI client initialized and verified successfully")
+            except openai.AuthenticationError:
+                logger.error("OpenAI API key is invalid")
+                self.client = None
+                self.openai_available = False
             except Exception as e:
                 logger.error(f"Failed to initialize OpenAI client: {e}")
+                self.client = None
                 self.openai_available = False
         else:
-            logger.warning("OpenAI API key not found or OpenAI not available - using demo mode")
+            if not self.api_key:
+                logger.warning("OpenAI API key not found - using demo mode")
+            else:
+                logger.warning("OpenAI library not available - using demo mode")
+    
+    def _validate_api_key_format(self, api_key: str) -> bool:
+        """Basic validation of API key format"""
+        # OpenAI keys typically start with 'sk-' and are at least 40 chars
+        return api_key.startswith('sk-') and len(api_key) >= 40
+    
+    def _test_api_connection(self):
+        """Test API connection with a minimal request"""
+        try:
+            # Use a very small completion to test the API
+            self.client.completions.create(
+                model="gpt-3.5-turbo-instruct",
+                prompt="Test",
+                max_tokens=1
+            )
+        except openai.AuthenticationError:
+            raise
+        except Exception:
+            # Other errors (rate limit, etc) are fine - key is valid
+            pass
         self._initialize_openai()
         
     def _initialize_openai(self):

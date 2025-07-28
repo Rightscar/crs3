@@ -45,14 +45,9 @@ except ImportError:
 
 try:
     from sentence_transformers import SentenceTransformer
-    from sklearn.feature_extraction.text import TfidfVectorizer
-    from sklearn.metrics.pairwise import cosine_similarity
     SENTENCE_TRANSFORMERS_AVAILABLE = True
-    SKLEARN_AVAILABLE = True
 except ImportError:
     SENTENCE_TRANSFORMERS_AVAILABLE = False
-    SKLEARN_AVAILABLE = False
-    logging.warning("Sentence transformers or sklearn not available - using basic similarity")
     logging.warning("sentence-transformers not available - semantic similarity disabled")
 
 try:
@@ -113,10 +108,34 @@ class IntelligentProcessor:
         # Initialize sentence transformers
         if self.sentence_transformers_available:
             try:
-                self.sentence_model = SentenceTransformer('all-MiniLM-L6-v2')
-                logger.info("Sentence transformer model loaded successfully")
+                # Try to load model with timeout for offline scenarios
+                import socket
+                original_timeout = socket.getdefaulttimeout()
+                socket.setdefaulttimeout(10)  # 10 second timeout
+                
+                try:
+                    self.sentence_model = SentenceTransformer('all-MiniLM-L6-v2')
+                    logger.info("Sentence transformer model loaded successfully")
+                except Exception as model_error:
+                    # Try to use cached model if available
+                    import os
+                    cache_dir = os.path.expanduser('~/.cache/torch/sentence_transformers')
+                    if os.path.exists(cache_dir):
+                        logger.warning(f"Failed to download model, checking cache: {model_error}")
+                        # Model might still work if cached
+                        try:
+                            self.sentence_model = SentenceTransformer('all-MiniLM-L6-v2', cache_folder=cache_dir)
+                            logger.info("Loaded sentence transformer from cache")
+                        except:
+                            raise model_error
+                    else:
+                        raise model_error
+                finally:
+                    socket.setdefaulttimeout(original_timeout)
+                    
             except Exception as e:
                 logger.warning(f"Failed to load sentence transformer: {e}")
+                logger.warning("Semantic similarity features will be disabled")
                 self.sentence_transformers_available = False
     
     def _split_into_sentences(self, text: str) -> List[str]:
@@ -132,21 +151,43 @@ class IntelligentProcessor:
             return [s.strip() for s in sentences if s.strip()]
     
     def _initialize_nltk_data(self):
-        """Initialize NLTK data"""
+        """Initialize NLTK data with proper error handling"""
         if not self.nltk_available:
             return
             
+        import nltk
+        required_data = {
+            'punkt': 'tokenizers/punkt',
+            'stopwords': 'corpora/stopwords',
+            'averaged_perceptron_tagger': 'taggers/averaged_perceptron_tagger',
+            'wordnet': 'corpora/wordnet'
+        }
+        
+        missing_data = []
+        for name, path in required_data.items():
+            try:
+                nltk.data.find(path)
+            except LookupError:
+                missing_data.append(name)
+        
+        if missing_data:
+            logger.info(f"Downloading missing NLTK data: {missing_data}")
+            for data_name in missing_data:
+                try:
+                    nltk.download(data_name, quiet=True)
+                    logger.info(f"Downloaded NLTK data: {data_name}")
+                except Exception as e:
+                    logger.warning(f"Failed to download NLTK data '{data_name}': {e}")
+                    # Don't disable NLTK entirely if just one dataset fails
+        
+        # Verify critical data is available
         try:
-            # Download required NLTK data if not present
-            import nltk
-            nltk.download('punkt', quiet=True)
-            nltk.download('stopwords', quiet=True)
-            nltk.download('averaged_perceptron_tagger', quiet=True)
-            nltk.download('wordnet', quiet=True)
+            nltk.data.find('tokenizers/punkt')
+            nltk.data.find('corpora/stopwords')
             logger.info("NLTK data initialized successfully")
-        except Exception as e:
-            logger.warning(f"Failed to initialize NLTK data: {e}")
-            self.nltk_available = False
+        except LookupError as e:
+            logger.warning(f"Critical NLTK data missing: {e}")
+            logger.warning("Some NLTK features may not work properly")
     
     def _load_stop_words(self):
         """Load stop words"""
