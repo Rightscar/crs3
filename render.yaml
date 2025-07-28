@@ -1,42 +1,50 @@
 services:
   - type: web
-    name: universal-document-reader
-    env: python
-    runtime: python-3.11.9
-    buildCommand: |
-      pip install --upgrade pip setuptools wheel &&
-      pip install -r requirements_deployment.txt --no-cache-dir --timeout 300 &&
-      python startup_check.py
-    startCommand: streamlit run app.py --server.port=$PORT --server.address=0.0.0.0 --server.headless=true --server.enableCORS=false
+    name: crs3-analytics-dashboard
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    
+    # Build configuration
+    buildCommand: ./build.sh
+    
+    # Health check endpoint
+    healthCheckPath: /_stcore/health
+    
+    # Environment variables
     envVars:
-      - key: STREAMLIT_SERVER_HEADLESS
-        value: true
-      - key: STREAMLIT_BROWSER_GATHER_USAGE_STATS
-        value: false
-      - key: STREAMLIT_SERVER_ENABLE_CORS
-        value: false
-      - key: STREAMLIT_SERVER_ENABLE_XSRF_PROTECTION
-        value: false
-      - key: PYTHONUNBUFFERED
-        value: "1"
-      - key: STREAMLIT_SERVER_PORT
-        value: $PORT
-      - key: MAX_FILE_SIZE_MB
-        value: "50"
-      - key: CACHE_TTL
-        value: "1800"
-      - key: MAX_MEMORY_MB
-        value: "256"
-      - key: DEBUG
-        value: "false"
-      - key: LOG_LEVEL
-        value: "INFO"
-      - key: ENABLE_CACHING
+      - key: RENDER
         value: "true"
-      - key: USE_ENHANCED_OCR
+      - key: PYTHON_VERSION
+        value: "3.11"
+      - key: STREAMLIT_SERVER_HEADLESS
+        value: "true"
+      - key: STREAMLIT_SERVER_ENABLE_CORS
         value: "false"
-      - key: SECRET_KEY
-        sync: false
-      - key: OPENAI_API_KEY
-        sync: false
-    plan: free
+      - key: STREAMLIT_SERVER_ENABLE_XSRF_PROTECTION
+        value: "true"
+      - key: STREAMLIT_BROWSER_GATHER_USAGE_STATS
+        value: "false"
+      
+      # Add these in Render dashboard as secrets:
+      # - OPENAI_API_KEY
+      # - DATABASE_URL (if using external database)
+      # - REDIS_URL (if using Redis for sessions)
+      # - SENTRY_DSN (if using Sentry for error tracking)
+      # - AWS_ACCESS_KEY_ID (if using S3)
+      # - AWS_SECRET_ACCESS_KEY (if using S3)
+      # - S3_BUCKET_NAME (if using S3)
+    
+    # Auto-deploy configuration
+    autoDeploy: false  # Set to true for automatic deploys from GitHub
+    
+    # Scaling configuration
+    plan: free  # Change to 'starter' or higher for production
+    
+    # Resource limits (adjust based on plan)
+    numInstances: 1
+    
+    # Disk (only available on paid plans)
+    # disk:
+    #   name: app-storage
+    #   mountPath: /mnt/storage
+    #   sizeGB: 1

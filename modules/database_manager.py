@@ -66,8 +66,19 @@ class ProcessingResult:
 class DatabaseManager:
     """SQLite database manager for persistent storage"""
     
-    def __init__(self, db_path: str = "data/universal_reader.db"):
+    def __init__(self, db_path: str = None):
         """Initialize database manager with path validation"""
+        # Use environment-appropriate database path
+        if db_path is None:
+            # Check if running on Render
+            if os.environ.get('RENDER') == 'true':
+                # Use /tmp directory on Render (ephemeral but writable)
+                db_path = "/tmp/universal_reader.db"
+                logger.warning("Using ephemeral database on Render. Consider using external database service.")
+            else:
+                # Use local data directory for development
+                db_path = "data/universal_reader.db"
+        
         # Validate and sanitize database path
         try:
             # Convert to Path object for better path handling
@@ -78,7 +89,7 @@ class DatabaseManager:
                 raise ValueError("Database path cannot contain '..' for security reasons")
             
             # Ensure the path is within a safe directory
-            safe_base_paths = ['data', './data', 'db', './db']
+            safe_base_paths = ['data', './data', 'db', './db', '/tmp']
             path_str = str(self.db_path)
             
             # Check if path starts with any safe base path

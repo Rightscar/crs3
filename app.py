@@ -36,6 +36,17 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+# Import and initialize authentication
+try:
+    from modules.auth_manager import auth_manager
+    
+    # Enable authentication only in production
+    if os.environ.get('RENDER') == 'true' or os.environ.get('ENABLE_AUTH') == 'true':
+        auth_manager.require_auth()
+        auth_manager.show_user_menu()
+except ImportError:
+    logger.warning("Authentication module not available")
+
 # Apply emergency CSS fixes
 try:
     # Validate file path to prevent directory traversal

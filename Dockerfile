@@ -27,13 +27,14 @@ COPY . .
 # Create non-root user for security
 RUN useradd --create-home --shell /bin/bash app \
     && chown -R app:app /app
+# Switch to non-root user
 USER app
 
-# Expose port
-EXPOSE 8501
+# Don't expose a specific port - Render handles this dynamically
+# EXPOSE 8501 - Removed for Render compatibility
 
-# Health check
-HEALTHCHECK CMD curl --fail http://localhost:8501/_stcore/health || exit 1
+# Health check using dynamic PORT environment variable
+HEALTHCHECK CMD curl --fail http://localhost:${PORT:-8501}/_stcore/health || exit 1
 
-# Run the application
-ENTRYPOINT ["streamlit", "run", "app.py", "--server.port=8501", "--server.address=0.0.0.0"]
+# Run the application with dynamic port configuration
+ENTRYPOINT ["sh", "-c", "streamlit run app.py --server.port=${PORT:-8501} --server.address=0.0.0.0 --server.headless=true --server.enableCORS=false --server.enableXsrfProtection=true"]

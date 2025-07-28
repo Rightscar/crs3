@@ -34,6 +34,17 @@ try:
 except ImportError:
     OPENAI_AVAILABLE = False
 
+# Import API error handler
+try:
+    from .api_error_handler import with_api_retry, api_error_handler
+except ImportError:
+    # Fallback if error handler not available
+    def with_api_retry(*args, **kwargs):
+        def decorator(func):
+            return func
+        return decorator
+    api_error_handler = None
+
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -74,12 +85,23 @@ class GPTDialogueGenerator:
         # This method is now redundant but kept for compatibility
         pass
     
-    def generate_dialogue_real(self, chunk_text: str, 
-                             dialogue_style: str = "Q&A",
-                             questions_count: int = 3,
-                             model: str = "gpt-3.5-turbo",
-                             temperature: float = 0.7) -> Dict[str, Any]:
-        """Generate real dialogue using OpenAI API"""
+    @with_api_retry(max_retries=3, backoff_factor=2.0)
+    def _make_openai_call(self, messages: List[Dict[str, str]], 
+                         model: str, temperature: float, 
+                         max_tokens: int) -> Any:
+        """Make OpenAI API call with retry logic"""
+        return self.client.chat.completions.create(
+            model=model,
+            messages=messages,
+            temperature=temperature,
+            max_tokens=max_tokens
+        )
+
+    def generate_dialogue(self, chunk_text: str, questions_count: int = 5,
+                         dialogue_style: str = "Q&A",
+                         model: str = "gpt-3.5-turbo",
+                         temperature: float = 0.7) -> Dict[str, Any]:
+        """Generate real dialogue using OpenAI API with error handling"""
         
         if not self.client:
             logger.warning("OpenAI client not available, falling back to demo mode")
@@ -89,16 +111,13 @@ class GPTDialogueGenerator:
             # Build prompt based on dialogue style
             prompt = self._build_dialogue_prompt(chunk_text, dialogue_style, questions_count)
             
-            # Make API call to OpenAI
-            response = self.client.chat.completions.create(
-                model=model,
-                messages=[
-                    {"role": "system", "content": "You are an expert at creating educational dialogues from text content."},
-                    {"role": "user", "content": prompt}
-                ],
-                temperature=temperature,
-                max_tokens=1000
-            )
+            # Make API call to OpenAI with retry logic
+            messages = [
+                {"role": "system", "content": "You are an expert at creating educational dialogues from text content."},
+                {"role": "user", "content": prompt}
+            ]
+            
+            response = self._make_openai_call(messages, model, temperature, 1000)
             
             # Parse the response safely
             if not response or not response.choices or len(response.choices) == 0:
