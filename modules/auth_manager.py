@@ -165,8 +165,12 @@ def get_auth_manager():
         _auth_manager = AuthManager()
     return _auth_manager
 
-# For backward compatibility
-auth_manager = get_auth_manager()
+# For backward compatibility - create a proxy that calls the getter
+class AuthManagerProxy:
+    def __getattr__(self, name):
+        return getattr(get_auth_manager(), name)
+
+auth_manager = AuthManagerProxy()
 
 def require_auth(func):
     """Decorator to require authentication"""

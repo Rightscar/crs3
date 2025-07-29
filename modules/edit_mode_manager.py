@@ -623,9 +623,13 @@ def get_edit_manager():
         _edit_manager = EditModeManager()
     return _edit_manager
 
-# For backward compatibility
-edit_manager = get_edit_manager()
+# For backward compatibility - create a proxy that calls the getter
+class EditManagerProxy:
+    def __getattr__(self, name):
+        return getattr(get_edit_manager(), name)
+
+edit_manager = EditManagerProxy()
 
 def get_edit_mode_manager() -> EditModeManager:
     """Get the global edit mode manager instance"""
-    return edit_manager
+    return get_edit_manager()

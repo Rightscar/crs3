@@ -50,7 +50,15 @@ try:
 except ImportError:
     logger.warning("Authentication module not available")
 
-# Apply emergency CSS fixes
+
+
+# Import our modules
+MODULES_AVAILABLE = True
+MODULE_ERRORS = {}
+REQUIRED_MODULES = []
+OPTIONAL_MODULES = []
+
+# Apply emergency CSS fixes (moved after OPTIONAL_MODULES initialization)
 try:
     # Use CDN for CSS if available
     if 'cdn_manager' in OPTIONAL_MODULES:
@@ -109,12 +117,6 @@ except Exception as e:
     # Log the error but don't stop the application
     logger.error(f"Error loading CSS: {e}")
     # Continue without custom styles
-
-# Import our modules
-MODULES_AVAILABLE = True
-MODULE_ERRORS = {}
-REQUIRED_MODULES = []
-OPTIONAL_MODULES = []
 
 try:
     # Core required modules

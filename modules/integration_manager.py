@@ -340,5 +340,9 @@ def get_integration_manager():
         _integration_manager = IntegrationManager()
     return _integration_manager
 
-# For backward compatibility
-integration_manager = get_integration_manager()
+# For backward compatibility - create a proxy that calls the getter
+class IntegrationManagerProxy:
+    def __getattr__(self, name):
+        return getattr(get_integration_manager(), name)
+
+integration_manager = IntegrationManagerProxy()

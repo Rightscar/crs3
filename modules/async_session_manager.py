@@ -368,8 +368,12 @@ def get_session_manager():
         _session_manager = AsyncSessionManager()
     return _session_manager
 
-# For backward compatibility
-session_manager = get_session_manager()
+# For backward compatibility - create a proxy that calls the getter
+class SessionManagerProxy:
+    def __getattr__(self, name):
+        return getattr(get_session_manager(), name)
+
+session_manager = SessionManagerProxy()
 
 # Convenience functions
 def get_current_session() -> UserSession:

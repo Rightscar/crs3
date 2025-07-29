@@ -166,5 +166,9 @@ def get_file_storage():
         _file_storage = FileStorageManager()
     return _file_storage
 
-# For backward compatibility
-file_storage = get_file_storage()
+# For backward compatibility - create a proxy that calls the getter
+class FileStorageProxy:
+    def __getattr__(self, name):
+        return getattr(get_file_storage(), name)
+
+file_storage = FileStorageProxy()

@@ -269,9 +269,13 @@ def get_ui_state():
         _ui_state = UIStateManager()
     return _ui_state
 
-# For backward compatibility
-ui_state = get_ui_state()
+# For backward compatibility - create a proxy that calls the getter
+class UIStateProxy:
+    def __getattr__(self, name):
+        return getattr(get_ui_state(), name)
+
+ui_state = UIStateProxy()
 
 def get_ui_state_manager() -> UIStateManager:
     """Get the global UI state manager instance"""
-    return ui_state
+    return get_ui_state()
