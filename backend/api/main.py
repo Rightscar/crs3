@@ -11,7 +11,7 @@ from contextlib import asynccontextmanager
 
 from core.config import settings
 from core.database import create_tables, check_database_connection
-from api.routers import auth, documents, characters, health, interactions
+from api.routers import auth, documents, characters, health, interactions, characters_enhanced
 from api.middleware.error_handler import error_handler_middleware
 
 # Configure logging
@@ -104,6 +104,11 @@ app.include_router(
     interactions.router,
     prefix=f"{settings.API_V1_STR}/interactions",
     tags=["interactions"]
+)
+app.include_router(
+    characters_enhanced.router,
+    prefix=f"{settings.API_V1_STR}",
+    tags=["enhanced_characters"]
 )
 
 # Root endpoint
