@@ -180,6 +180,106 @@ for module_name, module_path in optional_imports.items():
             def initialize_persistent_session():
                 pass
 
+# Import new framework modules
+framework_imports = {
+    'data_validator': 'modules.data_validator',
+    'business_rules': 'modules.business_rules',
+    'performance_optimizer': 'modules.performance_optimizer',
+    'ux_improvements': 'modules.ux_improvements',
+    'integration_manager': 'modules.integration_manager'
+}
+
+for module_name, module_path in framework_imports.items():
+    try:
+        if module_name == 'data_validator':
+            from modules.data_validator import validator
+        elif module_name == 'business_rules':
+            from modules.business_rules import business_rules
+        elif module_name == 'performance_optimizer':
+            from modules.performance_optimizer import performance_optimizer
+        elif module_name == 'ux_improvements':
+            from modules.ux_improvements import ux_enhancements
+        elif module_name == 'integration_manager':
+            from modules.integration_manager import integration_manager
+        OPTIONAL_MODULES.append(module_name)
+        logger.info(f"✅ Loaded framework module: {module_name}")
+    except ImportError as e:
+        MODULE_ERRORS[module_name] = str(e)
+        logger.warning(f"Framework module '{module_name}' not available: {e}")
+        
+        # Define minimal fallbacks
+        if module_name == 'data_validator':
+            class DummyValidator:
+                def validate_file_upload(self, *args, **kwargs):
+                    return type('obj', (object,), {'is_valid': True, 'errors': [], 'warnings': []})
+                def validate_text_input(self, *args, **kwargs):
+                    return type('obj', (object,), {'is_valid': True, 'errors': [], 'warnings': [], 'sanitized_value': args[0] if args else ''})
+            validator = DummyValidator()
+        elif module_name == 'business_rules':
+            class DummyBusinessRules:
+                def determine_processing_mode(self, *args, **kwargs):
+                    return type('obj', (object,), {'name': 'FALLBACK'})
+                def validate_processing_params(self, *args, **kwargs):
+                    return True, []
+            business_rules = DummyBusinessRules()
+        elif module_name == 'performance_optimizer':
+            class DummyOptimizer:
+                def cached(self, *args, **kwargs):
+                    return lambda f: f
+                def measure_performance(self, *args, **kwargs):
+                    return lambda f: f
+            performance_optimizer = DummyOptimizer()
+        elif module_name == 'ux_improvements':
+            class DummyUX:
+                def apply_theme(self, *args, **kwargs):
+                    pass
+                class accessibility:
+                    def apply_accessibility_styles(self):
+                        pass
+                class responsive:
+                    def apply_responsive_styles(self):
+                        pass
+                class progress_tracker:
+                    def start_operation(self, *args, **kwargs):
+                        pass
+                    def update_progress(self, *args, **kwargs):
+                        pass
+                    def complete_operation(self, *args, **kwargs):
+                        pass
+                class feedback:
+                    def show_error(self, *args, **kwargs):
+                        if len(args) > 1:
+                            st.error(args[1])
+                    def show_success(self, *args, **kwargs):
+                        if args:
+                            st.success(args[0])
+                    def show_warning(self, *args, **kwargs):
+                        if args:
+                            st.warning(args[0])
+            ux_enhancements = DummyUX()
+        elif module_name == 'integration_manager':
+            class DummyIntegration:
+                def create_context(self, *args, **kwargs):
+                    return type('obj', (object,), {'operation_id': 'dummy', 'user_id': 'user', 'session_id': 'session'})
+                def validate_and_process_file(self, *args, **kwargs):
+                    return True, type('obj', (object,), {'name': 'FALLBACK'}), []
+            integration_manager = DummyIntegration()
+
+# Apply UI enhancements if available
+try:
+    if 'ux_improvements' in OPTIONAL_MODULES:
+        # Apply theme based on user preference
+        theme = st.session_state.get('theme', 'default')
+        ux_enhancements.apply_theme(theme)
+        
+        # Apply accessibility settings
+        ux_enhancements.accessibility.apply_accessibility_styles()
+        
+        # Apply responsive design
+        ux_enhancements.responsive.apply_responsive_styles()
+except Exception as e:
+    logger.warning(f"Failed to apply UI enhancements: {e}")
+
 # Display module status in sidebar if there are any issues
 if MODULE_ERRORS:
     with st.sidebar.expander("⚠️ Module Status", expanded=False):
@@ -1269,11 +1369,40 @@ class UniversalDocumentReaderApp:
     def _load_document(self, uploaded_file, enable_ocr=False):
         """Load uploaded document with optional OCR"""
         try:
+            # Create processing context
+            user_id = st.session_state.get('user_id', 'default_user')
+            session_id = st.session_state.get('session_id', 'default_session')
+            
+            if 'integration_manager' in OPTIONAL_MODULES:
+                context = integration_manager.create_context(
+                    user_id=user_id,
+                    session_id=session_id,
+                    metadata={'ocr_enabled': enable_ocr}
+                )
+            else:
+                context = None
+            
             with st.spinner("📖 Loading document..."):
                 # Safe file processing with validation
                 if not uploaded_file or not hasattr(uploaded_file, 'name') or not uploaded_file.name:
                     st.error("❌ Invalid file upload")
                     return
+                
+                # Validate file with new framework
+                if 'data_validator' in OPTIONAL_MODULES:
+                    validation_result = validator.validate_file_upload(
+                        uploaded_file.name,
+                        uploaded_file.size
+                    )
+                    
+                    if not validation_result.is_valid:
+                        for error in validation_result.errors:
+                            st.error(f"❌ {error}")
+                        return
+                    
+                    if validation_result.warnings:
+                        for warning in validation_result.warnings:
+                            st.warning(f"⚠️ {warning}")
                 
                 # Read file content
                 file_content = uploaded_file.read()
@@ -1284,6 +1413,25 @@ class UniversalDocumentReaderApp:
                 
                 if file_type == 'unknown':
                     st.warning("⚠️ File type could not be determined, trying to process anyway...")
+                
+                # Validate with business rules
+                if 'business_rules' in OPTIONAL_MODULES and context:
+                    valid, mode, errors = integration_manager.validate_and_process_file(
+                        uploaded_file.name,
+                        len(file_content),
+                        context
+                    )
+                    
+                    if not valid:
+                        for error in errors:
+                            st.error(f"❌ {error}")
+                        return
+                    
+                    # Show processing mode
+                    if 'ux_improvements' in OPTIONAL_MODULES:
+                        ux_enhancements.feedback.show_info(
+                            f"📋 Processing mode: {mode.name}"
+                        )
                 
                 # Store in database first
                 document_id = self.persistence.store_document(
@@ -1998,30 +2146,91 @@ class UniversalDocumentReaderApp:
         result_count = 0
         confidence_avg = 0
         
+        # Create operation context
+        operation_id = f"process_page_{st.session_state.current_page}_{time.time()}"
+        
         try:
+            # Start progress tracking if available
+            if 'ux_improvements' in OPTIONAL_MODULES:
+                ux_enhancements.progress_tracker.start_operation(
+                    operation_id,
+                    total_steps=4,
+                    description=f"Processing page {st.session_state.current_page}..."
+                )
+            
+            # Step 1: Extract text
+            if 'ux_improvements' in OPTIONAL_MODULES:
+                ux_enhancements.progress_tracker.update_progress(
+                    operation_id, 1, "Extracting text..."
+                )
+            
             page_text = self.document_reader.extract_page_text(st.session_state.current_page)
             
             if not page_text:
                 st.warning("No text found on current page")
+                if 'ux_improvements' in OPTIONAL_MODULES:
+                    ux_enhancements.progress_tracker.complete_operation(
+                        operation_id, False, "No text found"
+                    )
                 return
+            
+            # Step 2: Validate text
+            if 'data_validator' in OPTIONAL_MODULES:
+                if 'ux_improvements' in OPTIONAL_MODULES:
+                    ux_enhancements.progress_tracker.update_progress(
+                        operation_id, 2, "Validating content..."
+                    )
+                
+                text_validation = validator.validate_text_input(page_text)
+                if text_validation.warnings:
+                    for warning in text_validation.warnings:
+                        logger.warning(f"Text validation warning: {warning}")
+                
+                # Use sanitized text
+                page_text = text_validation.sanitized_value
             
             # Enhanced progress indicator with estimated time
             progress_placeholder = st.empty()
-            progress_placeholder.markdown("""
-            <div class="progress-container">
-                <div class="progress-ring"></div>
-                <strong>🧠 Processing page {}</strong><br>
-                <small>Analyzing {} • Estimated time: 5-10 seconds</small>
-            </div>
-            """.format(st.session_state.current_page, st.session_state.current_processing_mode), unsafe_allow_html=True)
+            if 'ux_improvements' not in OPTIONAL_MODULES:
+                # Fallback progress indicator
+                progress_placeholder.markdown("""
+                <div class="progress-container">
+                    <div class="progress-ring"></div>
+                    <strong>🧠 Processing page {}</strong><br>
+                    <small>Analyzing {} • Estimated time: 5-10 seconds</small>
+                </div>
+                """.format(st.session_state.current_page, st.session_state.current_processing_mode), unsafe_allow_html=True)
             
-            results = self._process_text_with_mode(
-                page_text, 
-                st.session_state.current_processing_mode,
-                st.session_state.current_page
-            )
+            # Step 3: Process with AI
+            if 'ux_improvements' in OPTIONAL_MODULES:
+                ux_enhancements.progress_tracker.update_progress(
+                    operation_id, 3, "Analyzing with AI..."
+                )
+            
+            # Apply performance optimization if available
+            if 'performance_optimizer' in OPTIONAL_MODULES:
+                @performance_optimizer.measure_performance("process_text_with_mode")
+                def process_with_performance():
+                    return self._process_text_with_mode(
+                        page_text, 
+                        st.session_state.current_processing_mode,
+                        st.session_state.current_page
+                    )
+                results = process_with_performance()
+            else:
+                results = self._process_text_with_mode(
+                    page_text, 
+                    st.session_state.current_processing_mode,
+                    st.session_state.current_page
+                )
             
             progress_placeholder.empty()
+            
+            # Step 4: Save results
+            if 'ux_improvements' in OPTIONAL_MODULES:
+                ux_enhancements.progress_tracker.update_progress(
+                    operation_id, 4, "Saving results..."
+                )
             
             if results:
                 # Calculate metrics
@@ -2068,13 +2277,40 @@ class UniversalDocumentReaderApp:
                     self.persistence.save_session_state()
                     
                     st.success(f"Generated {len(results)} results (saved to database)!")
+                    
+                    # Complete progress tracking
+                    if 'ux_improvements' in OPTIONAL_MODULES:
+                        ux_enhancements.progress_tracker.complete_operation(
+                            operation_id, True, f"✅ Successfully processed {len(results)} results!"
+                        )
+                    
                     st.rerun()
                 else:
                     st.warning("No results generated")
                     
+                    # Complete progress tracking
+                    if 'ux_improvements' in OPTIONAL_MODULES:
+                        ux_enhancements.progress_tracker.complete_operation(
+                            operation_id, False, "No results generated"
+                        )
+                    
         except Exception as e:
             logger.error(f"Processing error: {e}")
-            st.error(f"Processing failed: {str(e)}")
+            
+            # Show user-friendly error with recovery suggestions
+            if 'ux_improvements' in OPTIONAL_MODULES:
+                ux_enhancements.feedback.show_error(
+                    e,
+                    user_message=f"Processing failed: {str(e)}",
+                    recovery_suggestion="Try a different processing mode or check your API settings"
+                )
+                
+                # Complete progress tracking with error
+                ux_enhancements.progress_tracker.complete_operation(
+                    operation_id, False, f"❌ Processing failed: {str(e)}"
+                )
+            else:
+                st.error(f"Processing failed: {str(e)}")
         
         finally:
             # Record analytics
