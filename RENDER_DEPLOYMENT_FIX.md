@@ -21,6 +21,7 @@ This occurred because:
 ### 2. Updated Dependencies
 - Updated pandas from 2.1.4 to 2.2.3 (first version with Python 3.13 support)
 - Updated numpy from 1.26.2 to 1.26.4 for better compatibility
+- Updated ebooklib from 0.18 to 0.19 to fix build issues with Python 3.12
 
 ### 3. Cleaned Up Configuration
 - Removed `runtime.txt` as Render doesn't use this file
@@ -29,7 +30,7 @@ This occurred because:
 ## Files Modified
 1. `Dockerfile` - Updated base image to `python:3.12-slim`
 2. `render.yaml` - Updated PYTHON_VERSION to "3.12"
-3. `requirements.txt` - Updated pandas to 2.2.3 and numpy to 1.26.4
+3. `requirements.txt` - Updated pandas to 2.2.3, numpy to 1.26.4, and ebooklib to 0.19
 4. `.python-version` - Created with Python 3.12.9
 5. `runtime.txt` - Deleted (not used by Render)
 
@@ -48,3 +49,9 @@ If you prefer to use Python 3.13:
 - Since you're using Docker runtime, the Python version is controlled by the Dockerfile
 - The `.python-version` file is included for completeness but won't affect Docker deployments
 - Consider testing locally with Docker: `docker build -t crs3-test . && docker run -p 8501:8501 crs3-test`
+
+## Troubleshooting
+If you encounter build issues with specific packages:
+1. Check if the package has a newer version that supports Python 3.12
+2. Look for alternative packages if the original is no longer maintained
+3. Consider pinning to specific versions that are known to work together
