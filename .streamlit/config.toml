@@ -59,24 +59,11 @@ serverPort = 8501
 magicEnabled = true
 
 [client]
-# Whether to enable st.cache
-caching = true
-
-# If false, makes your Streamlit script not draw to a Streamlit app
-displayEnabled = true
-
 # Controls whether uncaught app exceptions are displayed in the browser
-showErrorDetails = true
+showErrorDetails = "full"
 
 # Change the visibility of items in the toolbar
 toolbarMode = "auto"
-
-[deprecation]
-# Set to false to disable the deprecation warning for using Streamlit commands outside the main script
-showfileUploaderEncoding = false
-
-# Set to false to disable the deprecation warning for the file uploader encoding
-showImageFormat = false
 
 [logger]
 # Level of logging
