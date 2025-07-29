@@ -39,7 +39,7 @@ except ImportError:
         pass
 
 try:
-    import langdetect
+    import langid
     LANGDETECT_AVAILABLE = True
 except ImportError:
     LANGDETECT_AVAILABLE = False
@@ -192,7 +192,7 @@ class EnhancedOCRProcessor:
             return "eng"
         
         try:
-            detected = langdetect.detect(text)
+            detected = langid.classify(text)[0]
             
             # Map common language codes to Tesseract codes
             language_mapping = {
