@@ -40,6 +40,10 @@ This document lists all packages in requirements.txt that may have build or comp
 - **Issue**: Potential compatibility issues with Python 3.12
 - **Solution**: Updated to version 5.3.6
 
+### 10. **torch==2.1.2** → **2.2.0** ✅
+- **Issue**: PyTorch 2.1.2 doesn't support Python 3.12
+- **Solution**: Updated to version 2.2.0 which is the minimum version with Python 3.12 support
+
 ## Implementation Details
 
 ### Language Detection with charset-normalizer
