@@ -130,6 +130,7 @@ class Character(Base):
     __table_args__ = (
         Index('idx_character_owner_ecosystem', 'owner_id', 'ecosystem_id'),
         Index('idx_character_public_active', 'is_public', 'is_active'),
+        Index('idx_character_ecosystem_active', 'ecosystem_id', 'is_active'),
     )
     
     def __repr__(self):
@@ -211,6 +212,7 @@ class Message(Base):
     # Indexes
     __table_args__ = (
         Index('idx_message_conversation_created', 'conversation_id', 'created_at'),
+        Index('idx_message_sender_created', 'sender_id', 'created_at'),
     )
     
     def __repr__(self):
@@ -283,6 +285,7 @@ class CharacterMemory(Base):
     __table_args__ = (
         Index('idx_memory_character_importance', 'character_id', 'importance'),
         Index('idx_memory_type', 'memory_type'),
+        Index('idx_memory_character_type', 'character_id', 'memory_type'),
     )
     
     def __repr__(self):

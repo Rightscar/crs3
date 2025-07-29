@@ -7,6 +7,11 @@ import uuid
 from datetime import datetime
 
 from core.security import get_current_active_user
+from api.models.character import (
+    CharacterCreate, CharacterUpdate, CharacterResponse,
+    CharacterListResponse, ChatMessage, ChatResponse,
+    CharacterExportFormat
+)
 
 router = APIRouter()
 
@@ -14,34 +19,37 @@ router = APIRouter()
 mock_characters = {}
 
 
-@router.post("/")
+@router.post("/", response_model=CharacterResponse)
 async def create_character(
-    name: str,
-    description: str,
-    source_document_id: Optional[str] = None,
-    personality_traits: Optional[Dict[str, float]] = None,
+    character_data: CharacterCreate,
     current_user: dict = Depends(get_current_active_user)
 ) -> Dict[str, Any]:
     """
-    Create a new character
-    
-    - **name**: Character name
-    - **description**: Character description
-    - **source_document_id**: ID of source document (optional)
-    - **personality_traits**: Personality trait scores (optional)
+    Create a new character with validated input
     """
     character_id = str(uuid.uuid4())
     
     character = {
         "id": character_id,
-        "name": name,
-        "description": description,
-        "source_document_id": source_document_id,
-        "personality_traits": personality_traits or {},
+        "name": character_data.name,
+        "description": character_data.description,
+        "source_document_id": str(character_data.source_document_id) if character_data.source_document_id else None,
+        "personality_traits": character_data.personality_traits or {
+            "openness": 0.5,
+            "conscientiousness": 0.5,
+            "extraversion": 0.5,
+            "agreeableness": 0.5,
+            "neuroticism": 0.5
+        },
+        "ecosystem_id": None,
+        "autonomy_level": 0.5,
+        "social_energy": 1.0,
+        "is_public": False,
+        "is_active": True,
+        "interaction_count": 0,
         "created_by": current_user["id"],
-        "created_at": datetime.utcnow().isoformat(),
-        "updated_at": datetime.utcnow().isoformat(),
-        "status": "active"
+        "created_at": datetime.utcnow(),
+        "updated_at": datetime.utcnow()
     }
     
     mock_characters[character_id] = character
