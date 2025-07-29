@@ -15,7 +15,7 @@ import io
 from backend.core.database import get_db
 from backend.core.auth import get_current_user
 from backend.models.database import User, Document
-from backend.services.document_processing import UniversalDocumentReader, DocumentMetadata
+from backend.services.document_processing import UniversalDocumentReader, DocumentMetadata, EnhancedTextExtractor
 from backend.core.logging import get_logger
 
 logger = get_logger(__name__)
@@ -256,12 +256,43 @@ async def extract_and_index_document(
         # Extract full text
         full_text = await reader.extract_text()
         
-        # TODO: Store extracted text for searching
-        # TODO: Run NLP processing
-        # TODO: Extract potential characters
+        # Get document record
+        document = await db.get(Document, document_id)
+        if not document:
+            logger.error(f"Document {document_id} not found")
+            return
         
-        logger.info(f"Successfully indexed document {document_id}")
+        # Store extracted text
+        document.extracted_text = full_text
+        document.extraction_status = "processing"
+        await db.commit()
+        
+        # Run enhanced text extraction
+        text_extractor = EnhancedTextExtractor()
+        extraction_result = await text_extractor.extract_content(full_text)
+        
+        # Analyze for characters
+        character_analysis = await text_extractor.analyze_for_characters(full_text)
+        
+        # Update document with results
+        document.processing_results = {
+            "content_type": extraction_result.content_type.value,
+            "segment_count": len(extraction_result.segments),
+            "characters_detected": extraction_result.characters_detected,
+            "character_analysis": character_analysis,
+            "extraction_stats": extraction_result.extraction_stats
+        }
+        document.extraction_status = "completed"
+        
+        await db.commit()
+        
+        logger.info(f"Successfully indexed document {document_id} with {len(extraction_result.characters_detected)} characters detected")
     except Exception as e:
         logger.error(f"Failed to index document {document_id}: {e}")
+        # Update document status
+        if document:
+            document.extraction_status = "failed"
+            document.processing_results = {"error": str(e)}
+            await db.commit()
     finally:
         await reader.close()

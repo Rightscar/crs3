@@ -364,6 +364,9 @@ class PDFRenderer(BaseRenderer):
         return results
 
 
+from .renderers.docx_renderer import DocxRenderer
+
+
 class UniversalDocumentReader:
     """
     Universal document reader with support for multiple formats.
@@ -373,6 +376,7 @@ class UniversalDocumentReader:
     def __init__(self):
         self.renderers = {
             DocumentFormat.PDF: PDFRenderer,
+            DocumentFormat.DOCX: DocxRenderer,
             # Add other renderers as we migrate them
         }
         self.current_renderer: Optional[BaseRenderer] = None
