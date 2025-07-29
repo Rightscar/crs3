@@ -40,10 +40,11 @@ st.set_page_config(
 
 # Import and initialize authentication
 try:
-    from modules.auth_manager import auth_manager
+    from modules.auth_manager import get_auth_manager
     
     # Enable authentication only in production
     if os.environ.get('RENDER') == 'true' or os.environ.get('ENABLE_AUTH') == 'true':
+        auth_manager = get_auth_manager()
         auth_manager.require_auth()
         auth_manager.show_user_menu()
 except ImportError:

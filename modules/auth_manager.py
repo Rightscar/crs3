@@ -99,6 +99,9 @@ class AuthManager:
     
     def is_authenticated(self) -> bool:
         """Check if user is authenticated"""
+        # Ensure session state is initialized
+        self._init_session_state()
+        
         if not st.session_state.authenticated:
             return False
         
@@ -114,6 +117,9 @@ class AuthManager:
     
     def require_auth(self):
         """Require authentication for page access"""
+        # Ensure session state is initialized
+        self._init_session_state()
+        
         if not self.is_authenticated():
             self.show_login_page()
             st.stop()
@@ -149,8 +155,18 @@ class AuthManager:
                     self.logout()
                     st.rerun()
 
-# Global instance
-auth_manager = AuthManager()
+# Global instance - lazy initialization
+_auth_manager = None
+
+def get_auth_manager():
+    """Get or create auth manager instance"""
+    global _auth_manager
+    if _auth_manager is None:
+        _auth_manager = AuthManager()
+    return _auth_manager
+
+# For backward compatibility
+auth_manager = get_auth_manager()
 
 def require_auth(func):
     """Decorator to require authentication"""
