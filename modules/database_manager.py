@@ -92,19 +92,36 @@ class DatabaseManager:
             safe_base_paths = ['data', './data', 'db', './db', '/tmp']
             path_str = str(self.db_path)
             
-            # Check if path starts with any safe base path
-            is_safe = any(path_str.startswith(safe_path) for safe_path in safe_base_paths)
+            # Normalize the path for comparison
+            normalized_path = os.path.normpath(path_str)
             
-            # Also allow absolute paths within the current working directory
-            if self.db_path.is_absolute():
+            # Check if path starts with any safe base path
+            is_safe = False
+            for safe_path in safe_base_paths:
+                normalized_safe = os.path.normpath(safe_path)
+                if normalized_path.startswith(normalized_safe):
+                    is_safe = True
+                    break
+                # Also check if the path exactly matches (for /tmp case)
+                if normalized_path.startswith(normalized_safe + os.sep):
+                    is_safe = True
+                    break
+            
+            # Special handling for Render environment
+            if os.environ.get('RENDER') == 'true' and normalized_path.startswith('/tmp'):
+                is_safe = True
+            
+            # Also allow paths within current working directory
+            if not is_safe and self.db_path.is_absolute():
                 cwd = Path.cwd()
                 try:
                     self.db_path.relative_to(cwd)
                     is_safe = True
                 except ValueError:
-                    is_safe = False
+                    pass
             
             if not is_safe:
+                logger.error(f"Database path validation failed. Path: {path_str}, Normalized: {normalized_path}")
                 raise ValueError(f"Database path must be within safe directories: {safe_base_paths}")
             
             # Ensure the file has .db extension
