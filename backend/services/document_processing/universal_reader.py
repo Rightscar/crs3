@@ -365,6 +365,8 @@ class PDFRenderer(BaseRenderer):
 
 
 from .renderers.docx_renderer import DocxRenderer
+from .renderers.epub_renderer import EpubRenderer
+from .renderers.text_renderer import TextRenderer
 
 
 class UniversalDocumentReader:
@@ -377,7 +379,10 @@ class UniversalDocumentReader:
         self.renderers = {
             DocumentFormat.PDF: PDFRenderer,
             DocumentFormat.DOCX: DocxRenderer,
-            # Add other renderers as we migrate them
+            DocumentFormat.EPUB: EpubRenderer,
+            DocumentFormat.TXT: TextRenderer,
+            DocumentFormat.MD: TextRenderer,
+            # Add HTML renderer next
         }
         self.current_renderer: Optional[BaseRenderer] = None
         self.current_format: Optional[DocumentFormat] = None
