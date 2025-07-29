@@ -26,6 +26,7 @@ class AuthManager:
     
     def _init_session_state(self):
         """Initialize session state for authentication"""
+        # Preserve existing authentication state across reruns
         if 'authenticated' not in st.session_state:
             st.session_state.authenticated = False
         if 'user' not in st.session_state:
@@ -34,6 +35,10 @@ class AuthManager:
             st.session_state.auth_token = None
         if 'login_time' not in st.session_state:
             st.session_state.login_time = None
+        
+        # Add a flag to track if we're in a rerun after file upload
+        if 'file_upload_rerun' not in st.session_state:
+            st.session_state.file_upload_rerun = False
     
     def hash_password(self, password: str) -> str:
         """Hash password using SHA-256"""

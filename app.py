@@ -1472,11 +1472,15 @@ class UniversalDocumentReaderApp:
             session_id = st.session_state.get('session_id', 'default_session')
             
             if 'integration_manager' in OPTIONAL_MODULES:
-                context = integration_manager.create_context(
-                    user_id=user_id,
-                    session_id=session_id,
-                    metadata={'ocr_enabled': enable_ocr}
-                )
+                try:
+                    context = integration_manager.create_context(
+                        user_id=user_id,
+                        session_id=session_id,
+                        metadata={'ocr_enabled': enable_ocr}
+                    )
+                except Exception as e:
+                    logger.warning(f"Failed to create integration context: {e}")
+                    context = None
             else:
                 context = None
             
@@ -1532,22 +1536,32 @@ class UniversalDocumentReaderApp:
                         )
                 
                 # Store in database first
-                document_id = self.persistence.store_document(
-                    file_content=file_content,
-                    filename=uploaded_file.name,
-                    format_type=file_type,
-                    metadata={
-                        'upload_time': datetime.now().isoformat(),
-                        'file_size': len(file_content)
-                    }
-                )
+                try:
+                    document_id = self.persistence.store_document(
+                        file_content=file_content,
+                        filename=uploaded_file.name,
+                        format_type=file_type,
+                        metadata={
+                            'upload_time': datetime.now().isoformat(),
+                            'file_size': len(file_content)
+                        }
+                    )
+                except Exception as e:
+                    logger.error(f"Failed to store document in database: {e}")
+                    st.error(f"Failed to save document: {str(e)}")
+                    return
                 
                 # Load with document reader
-                result = self.document_reader.load_document(
-                    file_content, 
-                    file_type, 
-                    uploaded_file.name
-                )
+                try:
+                    result = self.document_reader.load_document(
+                        file_content, 
+                        file_type, 
+                        uploaded_file.name
+                    )
+                except Exception as e:
+                    logger.error(f"Document reader error: {e}")
+                    st.error(f"Failed to read document: {str(e)}")
+                    return
                 
                 if result and result.get('success', False):
                     # Update session state with database integration
@@ -1567,7 +1581,9 @@ class UniversalDocumentReaderApp:
                     self.persistence.save_session_state()
                     
                     st.success(f"✅ Document loaded: {uploaded_file.name} (ID: {document_id[:8]})")
-                    st.rerun()
+                    
+                    # Don't rerun - let the UI update naturally
+                    # st.rerun() can cause authentication state loss
                 else:
                     error_msg = "Unknown error"
                     if result and isinstance(result, dict):
