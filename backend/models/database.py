@@ -1,7 +1,7 @@
 """
 Database models for LiteraryAI Studio
 """
-from sqlalchemy import Column, String, Text, DateTime, Boolean, Float, JSON, ForeignKey, Integer, Index
+from sqlalchemy import Column, String, Text, DateTime, Boolean, Float, JSON, ForeignKey, Integer, Index, Table
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
@@ -34,48 +34,56 @@ class User(Base):
 
 
 class Document(Base):
-    """Document model"""
+    """Document storage and metadata"""
     __tablename__ = "documents"
     
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    title = Column(String(255), nullable=False)
     filename = Column(String(255), nullable=False)
-    file_type = Column(String(10), nullable=False)
-    file_path = Column(String(500))
-    file_size = Column(Integer)
+    file_type = Column(String(50), nullable=False)
+    file_size = Column(Integer, nullable=False)
+    page_count = Column(Integer, default=0)
+    file_path = Column(String(500))  # Storage path
     
-    # Content
-    text_content = Column(Text)
-    page_count = Column(Integer, default=1)
-    word_count = Column(Integer)
+    # Document metadata as JSON
+    metadata = Column(JSON, default=dict)
     
-    # Metadata
-    metadata = Column(JSON, default={})
-    analysis_results = Column(JSON, default={})
+    # Extracted content
+    extracted_text = Column(Text)
+    extraction_status = Column(String(50), default="pending")  # pending, processing, completed, failed
     
-    # Ownership
-    owner_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
-    owner = relationship("User", back_populates="documents")
-    
-    # Status
-    status = Column(String(50), default="uploaded")  # uploaded, processing, processed, failed
-    error_message = Column(Text)
+    # Processing results
+    processing_results = Column(JSON, default=dict)  # NLP results, character extraction, etc.
     
     # Timestamps
     created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
-    processed_at = Column(DateTime(timezone=True))
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     
     # Relationships
-    characters = relationship("Character", back_populates="source_document")
+    user = relationship("User", back_populates="documents")
+    characters_extracted = relationship("Character", secondary="document_characters", back_populates="source_documents")
     
     # Indexes
     __table_args__ = (
-        Index('idx_document_owner_created', 'owner_id', 'created_at'),
-        Index('idx_document_status', 'status'),
+        Index('idx_document_user_created', 'user_id', 'created_at'),
+        Index('idx_document_status', 'extraction_status'),
     )
     
     def __repr__(self):
         return f"<Document {self.filename}>"
+
+
+# Bridge table for document-character relationships
+document_characters = Table(
+    'document_characters',
+    Base.metadata,
+    Column('document_id', UUID(as_uuid=True), ForeignKey('documents.id'), primary_key=True),
+    Column('character_id', UUID(as_uuid=True), ForeignKey('characters.id'), primary_key=True),
+    Column('confidence_score', Float, default=1.0),
+    Column('extraction_method', String(50)),  # manual, nlp, ai
+    Column('created_at', DateTime(timezone=True), server_default=func.now())
+)
 
 
 class Character(Base):
@@ -87,8 +95,8 @@ class Character(Base):
     description = Column(Text)
     
     # Source
-    source_document_id = Column(UUID(as_uuid=True), ForeignKey("documents.id"))
-    source_document = relationship("Document", back_populates="characters")
+    # Source documents (many-to-many relationship)
+    source_documents = relationship("Document", secondary="document_characters", back_populates="characters_extracted")
     
     # Personality
     personality_traits = Column(JSON, default={})  # Big Five traits

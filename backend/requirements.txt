@@ -38,6 +38,14 @@ pydantic==2.5.2
 pydantic-settings==2.1.0
 python-dotenv==1.0.0
 
+# Document Processing
+PyMuPDF==1.23.8
+python-docx==0.8.11
+ebooklib==0.18
+Pillow==10.1.0
+beautifulsoup4==4.12.2
+lxml==4.9.3
+
 # Testing
 pytest==7.4.3
 pytest-asyncio==0.21.1
