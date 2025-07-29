@@ -1,0 +1,269 @@
+{
+  "imports": {
+    "passed": [],
+    "failed": [
+      {
+        "test": "Import Configuration",
+        "error": "No module named 'pydantic_settings'"
+      },
+      {
+        "test": "Import Database",
+        "error": "No module named 'sqlalchemy'"
+      },
+      {
+        "test": "Import Security",
+        "error": "No module named 'jose'"
+      },
+      {
+        "test": "Import Authentication",
+        "error": "No module named 'core.auth'"
+      },
+      {
+        "test": "Import Logging",
+        "error": "No module named 'core.logging'"
+      },
+      {
+        "test": "Import Redis Client",
+        "error": "No module named 'redis'"
+      },
+      {
+        "test": "Import Neo4j",
+        "error": "No module named 'neo4j'"
+      },
+      {
+        "test": "Import Pinecone",
+        "error": "No module named 'pinecone'"
+      },
+      {
+        "test": "Import Base Models",
+        "error": "No module named 'sqlalchemy'"
+      },
+      {
+        "test": "Import Enhanced Character Models",
+        "error": "No module named 'sqlalchemy'"
+      },
+      {
+        "test": "Import Document Processing",
+        "error": "No module named 'streamlit'"
+      },
+      {
+        "test": "Import NLP Processor",
+        "error": "No module named 'streamlit'"
+      },
+      {
+        "test": "Import Personality Service",
+        "error": "No module named 'streamlit'"
+      },
+      {
+        "test": "Import Enhanced Personality",
+        "error": "No module named 'streamlit'"
+      },
+      {
+        "test": "Import Interaction Engine",
+        "error": "No module named 'streamlit'"
+      },
+      {
+        "test": "Import Dialogue Generator",
+        "error": "No module named 'streamlit'"
+      },
+      {
+        "test": "Import Relationship Service",
+        "error": "No module named 'streamlit'"
+      },
+      {
+        "test": "Import Event Stream",
+        "error": "No module named 'streamlit'"
+      },
+      {
+        "test": "Import Main API",
+        "error": "No module named 'fastapi'"
+      },
+      {
+        "test": "Import Auth Router",
+        "error": "No module named 'fastapi'"
+      },
+      {
+        "test": "Import Characters Router",
+        "error": "No module named 'fastapi'"
+      },
+      {
+        "test": "Import Enhanced Characters Router",
+        "error": "No module named 'fastapi'"
+      },
+      {
+        "test": "Import Documents Router",
+        "error": "No module named 'fastapi'"
+      },
+      {
+        "test": "Import Interactions Router",
+        "error": "No module named 'fastapi'"
+      },
+      {
+        "test": "Import Health Router",
+        "error": "No module named 'fastapi'"
+      },
+      {
+        "test": "Import Character Models",
+        "error": "No module named 'pydantic'"
+      },
+      {
+        "test": "Import Enhanced Character Models",
+        "error": "No module named 'pydantic'"
+      }
+    ]
+  },
+  "database": {
+    "passed": [
+      "File: alembic.ini",
+      "File: requirements.txt",
+      "File: docker-compose.yml",
+      "File: .env.example",
+      "File: api/__init__.py",
+      "File: core/__init__.py",
+      "File: models/__init__.py",
+      "File: services/__init__.py",
+      "File: tests/__init__.py",
+      "Migration: 002_add_document_processing_tables.py",
+      "Migration: 003_add_enhanced_character_tables.py"
+    ],
+    "failed": [
+      {
+        "test": "Configuration Loading",
+        "error": "No module named 'pydantic_settings'"
+      },
+      {
+        "test": "Migration: 001_initial_schema.py",
+        "error": "Migration file not found"
+      },
+      {
+        "test": "PostgreSQL Connection",
+        "error": "No module named 'sqlalchemy'"
+      },
+      {
+        "test": "Redis Connection",
+        "error": "No module named 'redis'"
+      },
+      {
+        "test": "Neo4j Connection",
+        "error": "No module named 'neo4j'"
+      },
+      {
+        "test": "Pinecone Connection",
+        "error": "No module named 'pinecone'"
+      }
+    ]
+  },
+  "models": {
+    "passed": [],
+    "failed": [
+      {
+        "test": "Model Tests",
+        "error": "No module named 'sqlalchemy'"
+      }
+    ]
+  },
+  "services": {
+    "passed": [],
+    "failed": [
+      {
+        "test": "Document Processing Services",
+        "error": "No module named 'streamlit'"
+      },
+      {
+        "test": "NLP Services",
+        "error": "No module named 'streamlit'"
+      },
+      {
+        "test": "Personality Services",
+        "error": "No module named 'streamlit'"
+      },
+      {
+        "test": "Character Services",
+        "error": "No module named 'streamlit'"
+      }
+    ]
+  },
+  "api": {
+    "passed": [],
+    "failed": [
+      {
+        "test": "API Endpoints",
+        "error": "No module named 'fastapi'"
+      },
+      {
+        "test": "Pydantic Model Validation",
+        "error": "No module named 'pydantic'"
+      }
+    ]
+  },
+  "integration": {
+    "passed": [],
+    "failed": [
+      {
+        "test": "Circular Import Check",
+        "error": "No module named 'sqlalchemy'"
+      },
+      {
+        "test": "Async Compatibility",
+        "error": "No module named 'streamlit'"
+      },
+      {
+        "test": "Dependency: FastAPI",
+        "error": "Not installed"
+      },
+      {
+        "test": "Dependency: SQLAlchemy",
+        "error": "Not installed"
+      },
+      {
+        "test": "Dependency: Pydantic",
+        "error": "Not installed"
+      },
+      {
+        "test": "Dependency: Redis",
+        "error": "Not installed"
+      },
+      {
+        "test": "Dependency: Neo4j",
+        "error": "Not installed"
+      },
+      {
+        "test": "Dependency: Pinecone",
+        "error": "Not installed"
+      },
+      {
+        "test": "Dependency: Pytest",
+        "error": "Not installed"
+      },
+      {
+        "test": "Dependency: spaCy",
+        "error": "Not installed"
+      },
+      {
+        "test": "Dependency: NLTK",
+        "error": "Not installed"
+      },
+      {
+        "test": "Dependency: Sentence Transformers",
+        "error": "Not installed"
+      },
+      {
+        "test": "Dependency: Scikit-learn",
+        "error": "Not installed"
+      },
+      {
+        "test": "Dependency: NumPy",
+        "error": "Not installed"
+      },
+      {
+        "test": "Dependency: OpenAI",
+        "error": "Not installed"
+      },
+      {
+        "test": "Dependency: Transformers",
+        "error": "Not installed"
+      }
+    ]
+  },
+  "errors": []
+}

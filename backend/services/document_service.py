@@ -12,11 +12,9 @@ from pathlib import Path
 # Add parent directory to path to import modules
 sys.path.append(str(Path(__file__).parent.parent.parent))
 
-from modules.universal_document_reader import UniversalDocumentReader
-from modules.intelligent_processor import IntelligentProcessor
-from modules.enhanced_ocr_processor import EnhancedOCRProcessor
-from modules.large_file_ocr_handler import LargeFileOCRHandler
-from modules.multi_format_exporter import MultiFormatExporter
+from services.document_processing import UniversalDocumentReader, EnhancedOCRProcessor, LargeFileOCRHandler
+from services.nlp_ai.intelligent_processor import IntelligentProcessor
+from services.export_analytics.multi_format_exporter import MultiFormatExporter
 
 from core.config import settings
 
