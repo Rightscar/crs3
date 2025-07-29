@@ -2,7 +2,7 @@
 streamlit==1.29.0
 openai==1.6.1
 python-dotenv==1.0.0
-tiktoken==0.5.2
+tiktoken==0.6.0  # Updated from 0.5.2 for Python 3.12 compatibility
 
 # Document processing
 PyPDF2==3.0.1
@@ -13,7 +13,7 @@ pandas==2.2.3
 numpy==1.26.4
 Pillow==10.1.0
 beautifulsoup4==4.12.2
-lxml==4.9.4
+lxml==5.2.2  # Updated from 4.9.4 for Python 3.12 compatibility
 ebooklib==0.19
 markdown==3.5.1
 python-magic==0.4.27
@@ -49,7 +49,7 @@ sqlalchemy==2.0.25  # Added for better database management
 sentry-sdk==1.39.1
 
 # Performance monitoring
-psutil==5.9.8  # Added for system monitoring
+psutil==6.0.0  # Updated from 5.9.8 for Python 3.12 compatibility
 
 
 
@@ -58,7 +58,7 @@ gunicorn==21.2.0
 uvicorn==0.25.0
 
 # Background Tasks (Future)
-celery==5.3.4
+celery==5.3.6  # Updated from 5.3.4 for Python 3.12 compatibility
 
 # Additional Utilities
 python-multipart==0.0.6
