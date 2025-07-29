@@ -58,9 +58,6 @@ serverPort = 8501
 # Allows you to type a variable or string by itself in a single line of Python code
 magicEnabled = true
 
-# Sets the MPLBACKEND environment variable
-fixMatplotlib = true
-
 [client]
 # Whether to enable st.cache
 caching = true
