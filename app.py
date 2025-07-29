@@ -2474,9 +2474,10 @@ class UniversalDocumentReaderApp:
                     enhanced_text = enhanced_text.replace(issue_text, highlighted, 1)
             
             # Wrap in styled container
+            enhanced_text_html = enhanced_text.replace('\n', '<br>')
             return f"""
             <div style="background: white; color: black; padding: 1rem; border-radius: 8px; line-height: 1.6; font-family: 'Roboto', sans-serif;">
-                {enhanced_text.replace('\n', '<br>')}
+                {enhanced_text_html}
             </div>
             <div style="margin-top: 0.5rem; font-size: 0.8rem; opacity: 0.7;">
                 🔴 Negative emotion • 🔵 Positive emotion • <span style="text-decoration: underline wavy;">Grammar issues</span>
