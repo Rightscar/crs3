@@ -16,11 +16,13 @@ beautifulsoup4==4.12.2
 lxml==5.2.2  # Updated from 4.9.4 for Python 3.12 compatibility
 ebooklib==0.19
 markdown==3.5.1
-python-magic==0.4.27
+# Alternative to python-magic: use puremagic which is pure Python
+puremagic==1.28  # Replaced python-magic==0.4.27
 
 # OCR and language processing
 pytesseract==0.3.10
-langid==1.1.6
+# Alternative to langid/langdetect: use py3langid which is faster and Python 3.12 compatible
+py3langid==0.3.0  # Replaced langid==1.1.6
 
 # Data visualization
 plotly==5.18.0

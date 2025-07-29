@@ -14,8 +14,6 @@ RUN apt-get update && apt-get install -y \
     # Dependencies for lxml
     libxml2-dev \
     libxslt-dev \
-    # Dependencies for python-magic
-    libmagic1 \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements first for better caching

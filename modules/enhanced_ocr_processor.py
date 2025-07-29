@@ -39,7 +39,7 @@ except ImportError:
         pass
 
 try:
-    import langid
+    import py3langid as langid
     LANGDETECT_AVAILABLE = True
 except ImportError:
     LANGDETECT_AVAILABLE = False
