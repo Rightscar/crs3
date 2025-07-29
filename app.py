@@ -1628,8 +1628,13 @@ class UniversalDocumentReaderApp:
                     
                     with col4:
                         if st.button("📖 Load", key=f"load_{doc.document_id}"):
-                            self._load_document_from_history(doc.document_id)
-                            st.rerun()
+                            try:
+                                self._load_document_from_history(doc.document_id)
+                                # Don't rerun - let UI update naturally
+                                st.session_state.show_document_history = False
+                            except Exception as e:
+                                logger.error(f"Failed to load document from history: {e}")
+                                st.error(f"Failed to load document: {str(e)}")
                     
                     st.divider()
             
@@ -1662,6 +1667,10 @@ class UniversalDocumentReaderApp:
                     # Get document metadata
                     doc_record = self.persistence.db.get_document(document_id)
                     
+                    if not doc_record:
+                        st.error("Document metadata not found in database")
+                        return
+                    
                     # Load with document reader
                     result = self.document_reader.load_document(
                         content.encode('utf-8'),
@@ -1679,10 +1688,16 @@ class UniversalDocumentReaderApp:
                         st.session_state.table_of_contents = result.get('toc', [])
                         
                         # Restore document state from database
-                        self.persistence.restore_document_state(document_id)
+                        try:
+                            self.persistence.restore_document_state(document_id)
+                        except Exception as e:
+                            logger.warning(f"Failed to restore document state: {e}")
                         
                         # Save session state
-                        self.persistence.save_session_state()
+                        try:
+                            self.persistence.save_session_state()
+                        except Exception as e:
+                            logger.warning(f"Failed to save session state: {e}")
                         
                         st.success(f"✅ Document loaded from history: {doc_record.filename}")
                         
@@ -2635,7 +2650,7 @@ class UniversalDocumentReaderApp:
             # Show chat interface
             st.session_state.show_ai_chat = True
             st.success("💬 Chat started! Check the AI Chat panel.")
-            st.rerun()
+            # Don't rerun - causes auth state loss
             
         except Exception as e:
             logger.error(f"Chat initialization error: {e}")
@@ -2941,9 +2956,14 @@ class UniversalDocumentReaderApp:
                 file_ext = "jsonl"
                 
             elif format_type == "CSV":
-                content = self.exporter.export_to_csv_analysis(export_data)
-                mime_type = "text/csv"
-                file_ext = "csv"
+                try:
+                    content = self.exporter.export_to_csv_analysis(export_data)
+                    mime_type = "text/csv"
+                    file_ext = "csv"
+                except Exception as e:
+                    logger.error(f"CSV export failed: {e}")
+                    st.error(f"Failed to export to CSV: {str(e)}")
+                    return
                 
             elif format_type == "Structured JSON":
                 document_info = {
@@ -2951,9 +2971,14 @@ class UniversalDocumentReaderApp:
                     'format': st.session_state.current_document.get('format', 'unknown'),
                     'total_pages': st.session_state.total_pages
                 }
-                content = self.exporter.export_to_structured_json(export_data, document_info)
-                mime_type = "application/json"
-                file_ext = "json"
+                try:
+                    content = self.exporter.export_to_structured_json(export_data, document_info)
+                    mime_type = "application/json"
+                    file_ext = "json"
+                except Exception as e:
+                    logger.error(f"Structured JSON export failed: {e}")
+                    st.error(f"Failed to export to Structured JSON: {str(e)}")
+                    return
                 
             elif format_type == "Analysis Report":
                 document_info = {
