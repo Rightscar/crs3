@@ -1,0 +1,88 @@
+version: '3.8'
+
+services:
+  # PostgreSQL - Primary Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: literaryai-postgres
+    environment:
+      POSTGRES_DB: literaryai
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres123
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis - Cache & Pub/Sub
+  redis:
+    image: redis:7-alpine
+    container_name: literaryai-redis
+    command: redis-server --appendonly yes --requirepass redis123
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Neo4j - Graph Database
+  neo4j:
+    image: neo4j:5-community
+    container_name: literaryai-neo4j
+    environment:
+      NEO4J_AUTH: neo4j/neo4j123
+      NEO4J_PLUGINS: '["graph-data-science"]'
+      NEO4J_dbms_memory_pagecache_size: 1G
+      NEO4J_dbms_memory_heap_max__size: 1G
+    ports:
+      - "7474:7474"  # HTTP
+      - "7687:7687"  # Bolt
+    volumes:
+      - neo4j_data:/data
+      - neo4j_logs:/logs
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:7474 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # pgAdmin - PostgreSQL GUI (optional)
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: literaryai-pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@literaryai.com
+      PGADMIN_DEFAULT_PASSWORD: admin123
+    ports:
+      - "5050:80"
+    depends_on:
+      - postgres
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+
+  # Redis Commander - Redis GUI (optional)
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: literaryai-redis-commander
+    environment:
+      REDIS_HOSTS: local:redis:6379:0:redis123
+    ports:
+      - "8081:8081"
+    depends_on:
+      - redis
+
+volumes:
+  postgres_data:
+  redis_data:
+  neo4j_data:
+  neo4j_logs:
+  pgadmin_data:

@@ -1,0 +1,4 @@
+# docker-compose.prod.yml
+# TODO: Add configuration
+
+version: '1.0'
