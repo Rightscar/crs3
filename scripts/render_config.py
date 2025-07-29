@@ -104,15 +104,14 @@ class RenderConfig:
             'server.maxUploadSize': 100,  # MB
             'server.maxMessageSize': 100,  # MB
             'browser.gatherUsageStats': False,
-            'client.showErrorDetails': not RenderConfig.is_render_environment()
+            'client.showErrorDetails': 'full' if not RenderConfig.is_render_environment() else 'none'
         }
         
         # Add Render-specific optimizations
         if RenderConfig.is_render_environment():
             config.update({
                 'server.enableWebsocketCompression': True,
-                'runner.fastReruns': True,
-                'client.caching': True
+                'runner.fastReruns': True
             })
         
         return config
@@ -153,6 +152,8 @@ class RenderConfig:
                     key_name = key.replace('client.', '')
                     if isinstance(value, bool):
                         f.write(f'{key_name} = {str(value).lower()}\n')
+                    elif isinstance(value, str):
+                        f.write(f'{key_name} = "{value}"\n')
                     else:
                         f.write(f'{key_name} = {value}\n')
             

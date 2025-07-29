@@ -5,7 +5,7 @@ services:
     dockerfilePath: ./Dockerfile
     
     # Build configuration
-    buildCommand: ./build.sh
+    # buildCommand: ./build.sh  # Commented out - was overwriting config files
     
     # Health check endpoint
     healthCheckPath: /_stcore/health
