@@ -23,6 +23,8 @@ from typing import Dict, List, Any, Optional
 from datetime import datetime
 from pathlib import Path
 import re
+import json
+import numpy as np
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -49,53 +51,59 @@ except ImportError:
 
 # Apply emergency CSS fixes
 try:
-    # Validate file path to prevent directory traversal
-    css_file_path = 'styles/emergency_fixes.css'
-    
-    # Ensure the path is within the expected directory
-    abs_css_path = os.path.abspath(css_file_path)
-    expected_dir = os.path.abspath('styles')
-    
-    if not abs_css_path.startswith(expected_dir):
-        raise ValueError("Invalid CSS file path")
-    
-    if os.path.exists(abs_css_path) and os.path.isfile(abs_css_path):
-        with open(abs_css_path, 'r', encoding='utf-8') as f:
-            css_content = f.read()
-            
-            # Sanitize CSS content to prevent XSS
-            # Remove any script tags, javascript: protocols, and other dangerous content
-            dangerous_patterns = [
-                r'<script[^>]*>.*?</script>',  # Script tags
-                r'javascript:',  # JavaScript protocol
-                r'expression\s*\(',  # CSS expressions (IE)
-                r'@import',  # Prevent external imports
-                r'behavior\s*:',  # IE behaviors
-                r'binding\s*:',  # Mozilla bindings
-                r'-moz-binding',  # Mozilla bindings
-                r'vbscript:',  # VBScript protocol
-                r'data:text/html',  # Data URLs with HTML
-                r'<iframe',  # iframes
-                r'<object',  # objects
-                r'<embed',  # embeds
-                r'<link',  # link tags
-                r'<meta',  # meta tags
-            ]
-            
-            # Remove dangerous patterns
-            for pattern in dangerous_patterns:
-                css_content = re.sub(pattern, '', css_content, flags=re.IGNORECASE | re.DOTALL)
-            
-            # Additional validation: ensure it looks like CSS
-            # Check for basic CSS structure
-            if '{' in css_content and '}' in css_content:
-                # Wrap in style tags for proper CSS injection
-                st.markdown(f'<style>{css_content}</style>', unsafe_allow_html=True)
-            else:
-                logger.warning("CSS file doesn't appear to contain valid CSS")
+    # Use CDN for CSS if available
+    if 'cdn_manager' in OPTIONAL_MODULES:
+        css_url = cdn_manager.get_asset_url('styles/emergency_fixes.css')
+        st.markdown(f'<link rel="stylesheet" href="{css_url}">', unsafe_allow_html=True)
     else:
-        # CSS file not found - continue without styles
-        logger.info("CSS file not found, continuing without custom styles")
+        # Fallback to inline CSS loading
+        # Validate file path to prevent directory traversal
+        css_file_path = 'styles/emergency_fixes.css'
+        
+        # Ensure the path is within the expected directory
+        abs_css_path = os.path.abspath(css_file_path)
+        expected_dir = os.path.abspath('styles')
+        
+        if not abs_css_path.startswith(expected_dir):
+            raise ValueError("Invalid CSS file path")
+        
+        if os.path.exists(abs_css_path) and os.path.isfile(abs_css_path):
+            with open(abs_css_path, 'r', encoding='utf-8') as f:
+                css_content = f.read()
+                
+                # Sanitize CSS content to prevent XSS
+                # Remove any script tags, javascript: protocols, and other dangerous content
+                dangerous_patterns = [
+                    r'<script[^>]*>.*?</script>',  # Script tags
+                    r'javascript:',  # JavaScript protocol
+                    r'expression\s*\(',  # CSS expressions (IE)
+                    r'@import',  # Prevent external imports
+                    r'behavior\s*:',  # IE behaviors
+                    r'binding\s*:',  # Mozilla bindings
+                    r'-moz-binding',  # Mozilla bindings
+                    r'vbscript:',  # VBScript protocol
+                    r'data:text/html',  # Data URLs with HTML
+                    r'<iframe',  # iframes
+                    r'<object',  # objects
+                    r'<embed',  # embeds
+                    r'<link',  # link tags
+                    r'<meta',  # meta tags
+                ]
+                
+                # Remove dangerous patterns
+                for pattern in dangerous_patterns:
+                    css_content = re.sub(pattern, '', css_content, flags=re.IGNORECASE | re.DOTALL)
+                
+                # Additional validation: ensure it looks like CSS
+                # Check for basic CSS structure
+                if '{' in css_content and '}' in css_content:
+                    # Wrap in style tags for proper CSS injection
+                    st.markdown(f'<style>{css_content}</style>', unsafe_allow_html=True)
+                else:
+                    logger.warning("CSS file doesn't appear to contain valid CSS")
+        else:
+            # CSS file not found - continue without styles
+            logger.info("CSS file not found, continuing without custom styles")
 except Exception as e:
     # Log the error but don't stop the application
     logger.error(f"Error loading CSS: {e}")
@@ -186,7 +194,10 @@ framework_imports = {
     'business_rules': 'modules.business_rules',
     'performance_optimizer': 'modules.performance_optimizer',
     'ux_improvements': 'modules.ux_improvements',
-    'integration_manager': 'modules.integration_manager'
+    'integration_manager': 'modules.integration_manager',
+    'cdn_manager': 'modules.cdn_manager',
+    'gpu_accelerator': 'modules.gpu_accelerator',
+    'advanced_search': 'modules.advanced_search'
 }
 
 for module_name, module_path in framework_imports.items():
@@ -201,6 +212,12 @@ for module_name, module_path in framework_imports.items():
             from modules.ux_improvements import ux_enhancements
         elif module_name == 'integration_manager':
             from modules.integration_manager import integration_manager
+        elif module_name == 'cdn_manager':
+            from modules.cdn_manager import cdn_manager
+        elif module_name == 'gpu_accelerator':
+            from modules.gpu_accelerator import gpu_accelerator
+        elif module_name == 'advanced_search':
+            from modules.advanced_search import advanced_search
         OPTIONAL_MODULES.append(module_name)
         logger.info(f"✅ Loaded framework module: {module_name}")
     except ImportError as e:
@@ -256,6 +273,9 @@ for module_name, module_path in framework_imports.items():
                     def show_warning(self, *args, **kwargs):
                         if args:
                             st.warning(args[0])
+                    def show_info(self, *args, **kwargs):
+                        if args:
+                            st.info(args[0])
             ux_enhancements = DummyUX()
         elif module_name == 'integration_manager':
             class DummyIntegration:
@@ -264,6 +284,26 @@ for module_name, module_path in framework_imports.items():
                 def validate_and_process_file(self, *args, **kwargs):
                     return True, type('obj', (object,), {'name': 'FALLBACK'}), []
             integration_manager = DummyIntegration()
+        elif module_name == 'cdn_manager':
+            class DummyCDN:
+                def get_asset_url(self, path, version=True):
+                    return f"/static/{path}"
+                def generate_resource_hints(self):
+                    return ""
+            cdn_manager = DummyCDN()
+        elif module_name == 'gpu_accelerator':
+            class DummyGPU:
+                device = "cpu"
+                def get_device_info(self):
+                    return []
+                def text_embedding_acceleration(self, texts, model_name=None):
+                    return np.zeros((len(texts), 384))
+            gpu_accelerator = DummyGPU()
+        elif module_name == 'advanced_search':
+            class DummySearch:
+                def render_search_interface(self):
+                    st.info("Advanced search not available")
+            advanced_search = DummySearch()
 
 # Apply UI enhancements if available
 try:
@@ -279,6 +319,28 @@ try:
         ux_enhancements.responsive.apply_responsive_styles()
 except Exception as e:
     logger.warning(f"Failed to apply UI enhancements: {e}")
+
+# Apply CDN optimizations if available
+try:
+    if 'cdn_manager' in OPTIONAL_MODULES:
+        # Inject resource hints into page
+        resource_hints = cdn_manager.generate_resource_hints()
+        if resource_hints:
+            st.markdown(resource_hints, unsafe_allow_html=True)
+except Exception as e:
+    logger.warning(f"Failed to apply CDN optimizations: {e}")
+
+# Display GPU information if available
+try:
+    if 'gpu_accelerator' in OPTIONAL_MODULES:
+        gpu_info = gpu_accelerator.get_device_info()
+        if gpu_info:
+            logger.info(f"GPU acceleration available: {gpu_info[0].name}")
+            st.session_state.gpu_available = True
+        else:
+            st.session_state.gpu_available = False
+except Exception as e:
+    logger.warning(f"Failed to check GPU availability: {e}")
 
 # Display module status in sidebar if there are any issues
 if MODULE_ERRORS:
@@ -1121,6 +1183,19 @@ class UniversalDocumentReaderApp:
                         st.session_state.show_analytics = True
                 
                 st.markdown("---")
+                
+                # Search button
+                if st.button("🔍 Advanced Search", use_container_width=True):
+                    st.session_state.show_search = True
+                    st.rerun()
+                
+                # GPU acceleration status
+                if 'gpu_accelerator' in OPTIONAL_MODULES:
+                    st.markdown("---")
+                    if st.session_state.get('gpu_available', False):
+                        st.success(f"🚀 GPU: {gpu_accelerator.device}")
+                    else:
+                        st.info("💻 CPU Mode")
             
             # Show analytics dashboard if requested
             if st.session_state.get('show_analytics', False):
@@ -1136,6 +1211,18 @@ class UniversalDocumentReaderApp:
                 self._render_document_history()
                 if st.button("🔙 Back to Reader"):
                     st.session_state.show_document_history = False
+                    st.rerun()
+                return
+            
+            # Show advanced search if requested
+            if st.session_state.get('show_search', False):
+                if 'advanced_search' in OPTIONAL_MODULES:
+                    advanced_search.render_search_interface()
+                else:
+                    st.info("Advanced search functionality is not available")
+                
+                if st.button("🔙 Back to Reader"):
+                    st.session_state.show_search = False
                     st.rerun()
                 return
             
@@ -2535,6 +2622,19 @@ class UniversalDocumentReaderApp:
         results = []
         
         try:
+            # Use GPU acceleration for embedding-based operations if available
+            if mode in ["Context Extraction", "Theme Analysis"] and 'gpu_accelerator' in OPTIONAL_MODULES:
+                # Generate embeddings with GPU acceleration
+                sentences = text.split('. ')
+                if sentences:
+                    embeddings = gpu_accelerator.text_embedding_acceleration(sentences)
+                    
+                    # Store embeddings for similarity search
+                    st.session_state[f'page_{page_number}_embeddings'] = {
+                        'sentences': sentences,
+                        'embeddings': embeddings
+                    }
+            
             if mode == "Keyword Analysis":
                 keywords_str = st.session_state.get('keywords', '') or ''
                 if keywords_str:
@@ -2545,9 +2645,34 @@ class UniversalDocumentReaderApp:
             
             elif mode == "Context Extraction":
                 if st.session_state.context_query:
-                    results = self.nlp_processor.extract_context_based_content(
-                        text, st.session_state.context_query, 0.7, page_number
-                    )
+                    # Use GPU-accelerated similarity search if available
+                    if 'gpu_accelerator' in OPTIONAL_MODULES and f'page_{page_number}_embeddings' in st.session_state:
+                        embeddings_data = st.session_state[f'page_{page_number}_embeddings']
+                        query_embedding = gpu_accelerator.text_embedding_acceleration([st.session_state.context_query])
+                        
+                        # Find most similar sentences
+                        similarities, indices = gpu_accelerator.accelerate_similarity_search(
+                            query_embedding,
+                            embeddings_data['embeddings'],
+                            top_k=5
+                        )
+                        
+                        # Create results from top matches
+                        for i, (idx, score) in enumerate(zip(indices[0], similarities[0])):
+                            if score > 0.7:  # Threshold
+                                results.append(ProcessingResult(
+                                    type="context_match",
+                                    content=embeddings_data['sentences'][idx],
+                                    source_text=text[:100],
+                                    page_number=page_number,
+                                    confidence=float(score),
+                                    metadata={'gpu_accelerated': True}
+                                ))
+                    else:
+                        # Fallback to CPU processing
+                        results = self.nlp_processor.extract_context_based_content(
+                            text, st.session_state.context_query, 0.7, page_number
+                        )
             
             elif mode == "Q&A Generation":
                 results = self.nlp_processor.generate_questions_from_content(
