@@ -1126,6 +1126,13 @@ class UniversalDocumentReaderApp:
                         if 'show_document_history' not in st.session_state:
                             st.session_state.show_document_history = False
                         st.session_state.show_document_history = True
+                    
+                    # Add health check button
+                    st.markdown("---")
+                    if st.button("🏥 Health Check"):
+                        with st.expander("System Health Status", expanded=True):
+                            for issue in run_health_check():
+                                st.write(issue)
                         
         except Exception as e:
             logger.error(f"Database initialization failed: {e}")
@@ -3582,6 +3589,78 @@ Total Annotations: {len(st.session_state.edit_annotations)}
                 
                 if st.button("🎯 Generate Export", type="primary"):
                     self._generate_export(export_format, stitch_method)
+
+def run_health_check():
+    """Quick test of all major components"""
+    issues = []
+    
+    try:
+        # Test core imports
+        import streamlit as st
+        import openai
+        import spacy
+        import PyPDF2
+        import pandas as pd
+        import numpy as np
+        issues.append("✅ All core imports working")
+    except Exception as e:
+        issues.append(f"❌ Import error: {e}")
+    
+    try:
+        # Test spaCy model
+        import spacy
+        nlp = spacy.load("en_core_web_sm")
+        issues.append("✅ spaCy model loaded")
+    except Exception as e:
+        issues.append(f"❌ spaCy model error: {e}")
+    
+    try:
+        # Test OpenAI (if API key exists)
+        if os.getenv("OPENAI_API_KEY"):
+            issues.append("✅ OpenAI API key found")
+        else:
+            issues.append("⚠️ OpenAI API key missing (optional)")
+    except Exception as e:
+        issues.append(f"❌ OpenAI error: {e}")
+    
+    try:
+        # Test file system access
+        temp_path = Path("temp")
+        if temp_path.exists() and temp_path.is_dir():
+            issues.append("✅ Temp directory accessible")
+        else:
+            issues.append("⚠️ Temp directory missing")
+    except Exception as e:
+        issues.append(f"❌ File system error: {e}")
+    
+    try:
+        # Check available modules
+        available_modules = []
+        missing_modules = []
+        
+        for module in OPTIONAL_MODULES:
+            if module in globals():
+                available_modules.append(module)
+            else:
+                missing_modules.append(module)
+        
+        if available_modules:
+            issues.append(f"✅ Available modules: {', '.join(available_modules)}")
+        if missing_modules:
+            issues.append(f"⚠️ Missing modules: {', '.join(missing_modules)}")
+    except Exception as e:
+        issues.append(f"❌ Module check error: {e}")
+    
+    try:
+        # Check GPU availability
+        if hasattr(st.session_state, 'gpu_available') and st.session_state.gpu_available:
+            issues.append("✅ GPU acceleration available")
+        else:
+            issues.append("ℹ️ GPU not available (CPU mode)")
+    except Exception as e:
+        issues.append(f"❌ GPU check error: {e}")
+    
+    return issues
 
 def main():
     """Main application entry point"""
