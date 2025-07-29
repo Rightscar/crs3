@@ -23,6 +23,7 @@ import zipfile
 from pathlib import Path
 import os
 import re
+import uuid
 
 # Optional pandas import
 try:

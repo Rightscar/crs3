@@ -358,8 +358,18 @@ class AsyncSessionManager:
         except Exception as e:
             logger.error(f"Session manager shutdown error: {e}")
 
-# Global instance for easy access
-session_manager = AsyncSessionManager()
+# Global instance - lazy initialization
+_session_manager = None
+
+def get_session_manager():
+    """Get or create session manager instance"""
+    global _session_manager
+    if _session_manager is None:
+        _session_manager = AsyncSessionManager()
+    return _session_manager
+
+# For backward compatibility
+session_manager = get_session_manager()
 
 # Convenience functions
 def get_current_session() -> UserSession:

@@ -613,8 +613,18 @@ class EditModeManager:
             'current_tool': st.session_state.current_edit_tool
         }
 
-# Global instance
-edit_manager = EditModeManager()
+# Global instance - lazy initialization
+_edit_manager = None
+
+def get_edit_manager():
+    """Get or create edit manager instance"""
+    global _edit_manager
+    if _edit_manager is None:
+        _edit_manager = EditModeManager()
+    return _edit_manager
+
+# For backward compatibility
+edit_manager = get_edit_manager()
 
 def get_edit_mode_manager() -> EditModeManager:
     """Get the global edit mode manager instance"""

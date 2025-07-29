@@ -212,7 +212,8 @@ for module_name, module_path in framework_imports.items():
         elif module_name == 'ux_improvements':
             from modules.ux_improvements import ux_enhancements
         elif module_name == 'integration_manager':
-            from modules.integration_manager import integration_manager
+            from modules.integration_manager import get_integration_manager
+            integration_manager = get_integration_manager()
         elif module_name == 'cdn_manager':
             from modules.cdn_manager import cdn_manager
         elif module_name == 'gpu_accelerator':

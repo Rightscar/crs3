@@ -259,8 +259,18 @@ class UIStateManager:
                 'touch_targets': 'normal'
             }
 
-# Global instance
-ui_state = UIStateManager()
+# Global instance - lazy initialization
+_ui_state = None
+
+def get_ui_state():
+    """Get or create UI state instance"""
+    global _ui_state
+    if _ui_state is None:
+        _ui_state = UIStateManager()
+    return _ui_state
+
+# For backward compatibility
+ui_state = get_ui_state()
 
 def get_ui_state_manager() -> UIStateManager:
     """Get the global UI state manager instance"""

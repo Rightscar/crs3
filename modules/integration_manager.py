@@ -330,5 +330,15 @@ class IntegrationManager:
         else:
             return 'standard'
 
-# Global instance
-integration_manager = IntegrationManager()
+# Global instance - lazy initialization
+_integration_manager = None
+
+def get_integration_manager():
+    """Get or create integration manager instance"""
+    global _integration_manager
+    if _integration_manager is None:
+        _integration_manager = IntegrationManager()
+    return _integration_manager
+
+# For backward compatibility
+integration_manager = get_integration_manager()

@@ -156,5 +156,15 @@ class FileStorageManager:
         
         return info
 
-# Global instance
-file_storage = FileStorageManager()
+# Global instance - lazy initialization
+_file_storage = None
+
+def get_file_storage():
+    """Get or create file storage instance"""
+    global _file_storage
+    if _file_storage is None:
+        _file_storage = FileStorageManager()
+    return _file_storage
+
+# For backward compatibility
+file_storage = get_file_storage()
