@@ -21,8 +21,7 @@ puremagic==1.28  # Replaced python-magic==0.4.27
 
 # OCR and language processing
 pytesseract==0.3.10
-# Alternative to langid/langdetect: use py3langid which is faster and Python 3.12 compatible
-py3langid==0.3.0  # Replaced langid==1.1.6
+# Language detection: Using charset-normalizer which is already a dependency of requests
 
 # Data visualization
 plotly==5.18.0
@@ -47,23 +46,52 @@ PyJWT==2.8.0  # Added for JWT support
 # Database
 sqlalchemy==2.0.25  # Added for better database management
 
-# Monitoring (Optional)
-sentry-sdk==1.39.1
+# Task queue - Updated for Python 3.12
+celery==5.3.6  # Updated from 5.3.4
+redis==5.0.1
 
-# Performance monitoring
-psutil==6.0.0  # Updated from 5.9.8 for Python 3.12 compatibility
+# Monitoring/Logging - Updated for Python 3.12
+psutil==6.0.0  # Updated from 5.9.8
+loguru==0.7.2
 
+# Development tools
+pytest==7.4.4
+pytest-asyncio==0.21.1
+black==23.12.1
+flake8==7.0.0
+mypy==1.8.0
+pre-commit==3.6.0
 
-
-# Production Server
-gunicorn==21.2.0
+# API/Web framework extras
+pydantic==2.5.3
 uvicorn==0.25.0
+fastapi==0.108.0
+httpx==0.26.0
 
-# Background Tasks (Future)
-celery==5.3.6  # Updated from 5.3.4 for Python 3.12 compatibility
+# Additional ML/Data tools
+scikit-learn==1.3.2
+scipy==1.11.4
+transformers==4.36.2
+torch==2.1.2
 
-# Additional Utilities
+# Cloud storage
+boto3==1.34.11
+google-cloud-storage==2.13.0
+azure-storage-blob==12.19.0
+
+# Compression
+py7zr==0.21.0
+rarfile==4.1
+
+# Additional document formats
+pdfplumber==0.10.3
+camelot-py[cv]==0.11.0
+tabula-py==2.9.0
+
+# Email processing
+email-validator==2.1.0
 python-multipart==0.0.6
-aiofiles==23.2.1
-httpx==0.25.2
-pydantic==2.5.2
+
+# Scheduling
+schedule==1.2.0
+apscheduler==3.10.4

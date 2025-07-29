@@ -39,7 +39,7 @@ except ImportError:
         pass
 
 try:
-    import py3langid as langid
+    from charset_normalizer import from_bytes
     LANGDETECT_AVAILABLE = True
 except ImportError:
     LANGDETECT_AVAILABLE = False
@@ -192,27 +192,48 @@ class EnhancedOCRProcessor:
             return "eng"
         
         try:
-            detected = langid.classify(text)[0]
+            # Use charset-normalizer to detect language
+            result = from_bytes(text.encode('utf-8'))
+            if result.best() and result.best().language:
+                detected = result.best().language.lower()
+            else:
+                return "eng"
             
             # Map common language codes to Tesseract codes
             language_mapping = {
                 "en": "eng",
+                "english": "eng",
                 "hi": "hin",
+                "hindi": "hin",
                 "ta": "tam",
+                "tamil": "tam",
                 "sa": "san",
+                "sanskrit": "san",
                 "ar": "ara",
+                "arabic": "ara",
                 "th": "tha",
+                "thai": "tha",
                 "bo": "tib",
+                "tibetan": "tib",
                 "ja": "jpn",
+                "japanese": "jpn",
                 "zh-cn": "chi_sim",
+                "chinese": "chi_sim",
                 "zh-tw": "chi_tra",
                 "ko": "kor",
+                "korean": "kor",
                 "de": "deu",
-                "fr": "fra",
+                "deu": "deu",
+                "fra": "fra",
+                "french": "fra",
                 "es": "spa",
+                "spanish": "spa",
                 "it": "ita",
+                "italian": "ita",
                 "pt": "por",
-                "ru": "rus"
+                "portuguese": "por",
+                "ru": "rus",
+                "russian": "rus"
             }
             
             tesseract_lang = language_mapping.get(detected, "eng")

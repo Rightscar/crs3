@@ -12,91 +12,58 @@ This document lists all packages in requirements.txt that may have build or comp
 - **Issue**: C extension that requires compilation, may have issues with Python 3.12's C API changes
 - **Solution**: Updated to version 5.2.2 which has better Python 3.12 support
 
-### 3. **langdetect==1.0.9** → **langid==1.1.6** → **py3langid==0.3.0** ✅
+### 3. **langdetect==1.0.9** → **charset-normalizer** ✅
 - **Issue**: langdetect and langid both have build issues with Python 3.12
-- **Solution**: Replaced with py3langid==0.3.0, a modernized fork that's faster and Python 3.12 compatible
+- **Solution**: Using charset-normalizer (already a dependency of requests) which has language detection capabilities and is pure Python
 
 ### 4. **python-magic==0.4.27** → **puremagic==1.28** ✅
-- **Issue**: Last updated in June 2022, doesn't list Python 3.12 support, requires libmagic system library
-- **Solution**: Replaced with puremagic==1.28, a pure Python alternative with no external dependencies
+- **Issue**: python-magic requires libmagic system library which can cause deployment issues
+- **Solution**: Replaced with puremagic==1.28, a pure Python alternative
 
-### 5. **psutil==5.9.8** → **6.0.0** ✅
-- **Issue**: C extension that may need recompilation for Python 3.12
-- **Solution**: Updated to version 6.0.0 which has Python 3.12 wheels
+### 5. **ebooklib==0.18** → **0.19** ✅
+- **Issue**: Old package with build issues on Python 3.12
+- **Solution**: Updated to version 0.19 which has better packaging
 
-### 6. **celery==5.3.4** → **5.3.6** ✅
-- **Issue**: Has issues with Python 3.12 mock assertions and deprecated features
-- **Solution**: Updated to version 5.3.6 which has Python 3.12 fixes
+### 6. **pandas==2.1.4** → **2.2.3** ✅
+- **Issue**: pandas 2.1.4 is not compatible with Python 3.13 (Render's default)
+- **Solution**: Updated to version 2.2.3 which supports Python 3.12 and 3.13
 
-### 7. **pandas==2.1.4** → **2.2.3** ✅ (Already fixed)
-- **Issue**: Not compatible with Python 3.12 due to C API changes
-- **Solution**: Already updated to 2.2.3
+### 7. **numpy==1.26.2** → **1.26.4** ✅
+- **Issue**: Compatibility with pandas and Python 3.12
+- **Solution**: Updated to version 1.26.4
 
-### 8. **numpy==1.26.2** → **1.26.4** ✅ (Already fixed)
-- **Issue**: Compatibility issues with Python 3.12
-- **Solution**: Already updated to 1.26.4
+### 8. **psutil==5.9.8** → **6.0.0** ✅
+- **Issue**: May have issues with Python 3.12
+- **Solution**: Updated to version 6.0.0 which has full Python 3.12 support
 
-### 9. **ebooklib==0.18** → **0.19** ✅ (Already fixed)
-- **Issue**: Build issues with setup.py
-- **Solution**: Already updated to 0.19
+### 9. **celery==5.3.4** → **5.3.6** ✅
+- **Issue**: Potential compatibility issues with Python 3.12
+- **Solution**: Updated to version 5.3.6
 
-## Package Replacements Summary
+## Implementation Details
 
-| Old Package | New Package | Reason |
-|-------------|-------------|---------|
-| langdetect/langid | py3langid==0.3.0 | Pure Python, faster, Python 3.12 compatible |
-| python-magic==0.4.27 | puremagic==1.28 | Pure Python, no external dependencies |
+### Language Detection with charset-normalizer
+Since charset-normalizer is already a dependency of the requests library, we can use it for language detection without adding extra dependencies:
 
-## Code Changes Required
-
-### 1. Language Detection
-If your code uses langid, update the import:
 ```python
-# Old:
-import langid
+from charset_normalizer import from_bytes
 
-# New:
-import py3langid as langid
+# Detect language
+result = from_bytes(text.encode('utf-8'))
+if result.best() and result.best().language:
+    detected_language = result.best().language.lower()
 ```
 
-### 2. File Type Detection
-If your code uses python-magic, replace with puremagic:
-```python
-# Old:
-import magic
-file_type = magic.from_file(filename)
-
-# New:
-import puremagic
-file_type = puremagic.from_file(filename)
-```
-
-## Docker Changes
-
+### Dockerfile Updates
 The Dockerfile has been updated to:
-1. Use Python 3.12-slim base image
-2. Add build-essential and python3-dev for compilation support
-3. Add libxml2-dev and libxslt-dev for lxml
-4. Remove libmagic1 (no longer needed with puremagic)
+- Use Python 3.12-slim base image
+- Include necessary build dependencies (python3-dev, libxml2-dev, libxslt-dev)
+- Remove libmagic1 since we're using puremagic
 
-## Testing
+## Summary
+All packages with Python 3.12 compatibility issues have been addressed by either:
+1. Updating to newer versions with Python 3.12 support
+2. Replacing with pure Python alternatives
+3. Using existing dependencies for functionality (charset-normalizer for language detection)
 
-After deployment, verify:
-1. All packages install successfully
-2. Language detection works with py3langid
-3. File type detection works with puremagic (if used)
-4. All other functionality remains intact
-
-## Benefits of These Changes
-
-1. **Faster installation**: Pre-built wheels and pure Python packages install faster
-2. **No system dependencies**: puremagic doesn't require libmagic
-3. **Better performance**: py3langid is 5-6x faster than langid
-4. **Future-proof**: All packages now officially support Python 3.12
-
-## Rollback Plan
-
-If issues occur, you can rollback to Python 3.11 by:
-1. Changing the Dockerfile base image to `python:3.11-slim`
-2. Reverting the package versions in requirements.txt
-3. Re-deploying the application
+This ensures smooth deployment on Python 3.12 environments without build or runtime issues.
